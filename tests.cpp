@@ -1,0 +1,151 @@
+#include <iostream>
+#include <random>
+
+#include "tests.hpp"
+
+static auto const seed = std::random_device{}();
+
+static auto const internal_step = 1ll << 20;
+
+/***
+ * Генератор случайных чисел.
+ */
+auto roll_ulow = [urbg = std::mt19937{seed},
+                distr = std::uniform_int_distribution<ULOW>{}]() mutable -> ULOW {
+    return distr(urbg);
+};
+
+auto roll_uint = [urbg = std::mt19937{seed},
+                distr = std::uniform_int_distribution<uint>{}]() mutable -> uint {
+    return distr(urbg);
+};
+
+auto roll_bool = [urbg = std::mt19937{seed},
+                distr = std::uniform_int_distribution<uint>{}]() mutable -> bool {
+    return distr(urbg) % 2;
+};
+
+
+PythonCaller::PythonCaller()
+{
+    Py_Initialize();
+    mMain = PyImport_AddModule("__main__");
+    mGlobalDictionary = PyModule_GetDict(mMain);
+    mLocalDictionary = PyDict_New();
+}
+
+PythonCaller::~PythonCaller()
+{
+    Py_Finalize();
+}
+
+PyObject *PythonCaller::Divide(U128 X, U128 Y) const
+{
+    const char* pythonScript = "quotient = nominator // denominator\n";
+    PyDict_SetItemString(mLocalDictionary, "nominator", PyLong_FromString(X.value().c_str(), nullptr, 10));
+    PyDict_SetItemString(mLocalDictionary, "denominator", PyLong_FromString(Y.value().c_str(), nullptr, 10));
+    PyRun_String(pythonScript, Py_file_input, mGlobalDictionary, mLocalDictionary);
+    return PyDict_GetItemString(mLocalDictionary, "quotient");
+}
+
+bool PythonCaller::Compare(PyObject *quotient, const char *reference) const
+{
+    PyObject* repr = PyObject_Repr(quotient);
+    PyObject* str = PyUnicode_AsEncodedString(repr, "utf-8", "~E~");
+    const char *bytes = PyBytes_AsString(str);
+    const bool is_ok = strcmp(bytes, reference) == 0;
+    if (!is_ok) {
+        printf("Python: %s\n", bytes);
+        printf("C++: %s\n", reference);
+    }
+    Py_XDECREF(repr);
+    Py_XDECREF(str);
+    return is_ok;
+}
+
+bool test_div(U128 z1, U128 z2, PythonCaller &caller)
+{
+    const U128 z3 = z1 / z2;
+    PyObject* quotient = caller.Divide(z1, z2);
+    return caller.Compare(quotient, z3.value().c_str());
+}
+
+void test_division_semi_randomly(long long N)
+{
+    if (N < 1) {
+        std::cout << "Skipped!\n";
+        return;
+    }
+    PythonCaller caller;
+    const std::vector<ULOW> choice {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 
+                                    65535, 65534, 65533, 65532, 65531, 65530, 
+                                    16384, 16383, 16382, 16385, 16386, 16387, 16388, 
+                                    -1ull, -2ull, -3ull, -4ull, -5ull, -6ull, -7ull};
+    auto make_test = [&caller](const Quadrupole q, const Signess s) -> bool {
+        return test_div(U128{.mHigh = q.A, .mLow = q.B, .mSign = s.s1},
+                        U128{.mHigh = q.C, .mLow = q.D, .mSign = s.s2},
+                        caller);
+    };
+    auto get_quadrupole = [&choice]() -> Quadrupole {
+        auto idx1 = roll_uint() % choice.size();
+        auto idx2 = roll_uint() % choice.size();
+        auto idx3 = roll_uint() % choice.size();
+        auto idx4 = roll_uint() % choice.size();
+        Quadrupole q {choice[idx1], choice[idx2], choice[idx3], choice[idx4]};
+        return q;
+    };
+    long long counter = 0;
+    long long external_iterations = 0;
+    bool is_ok = true;
+    while (external_iterations < N) {
+        ++counter;
+        const Quadrupole q = get_quadrupole();
+        const Signess s{roll_bool(), roll_bool()};
+        if (q.C == 0 && q.D == 0) {
+            continue;
+        }
+        is_ok &= make_test(q, s);
+        assert(is_ok);
+        if (counter % internal_step == 0) {
+            external_iterations++;
+            std::cout << "... iterations: " << counter << ". External: " << 
+                external_iterations << " from " << N << '\n';
+        }
+    }
+}
+
+void test_division_randomly(long long N)
+{
+    if (N < 1) {
+        std::cout << "Skipped!\n";
+        return;
+    }
+    PythonCaller caller;
+    auto make_test = [&caller](const Quadrupole q, const Signess s) -> bool {
+        return test_div(U128{.mHigh = q.A, .mLow = q.B, .mSign = s.s1},
+                        U128{.mHigh = q.C, .mLow = q.D, .mSign = s.s2},
+                        caller);
+    };
+    auto get_quadrupole = []() -> Quadrupole {
+        Quadrupole q {roll_ulow(), roll_ulow(), roll_ulow(), roll_ulow()};
+        return q;
+    };
+    long long counter = 0;
+    long long external_iterations = 0;
+    bool is_ok = true;
+    while (external_iterations < N) {
+        ++counter;
+        const Quadrupole q = get_quadrupole();
+        const Signess s{roll_bool(), roll_bool()};
+        if (q.C == 0 && q.D == 0) {
+            continue;
+        }
+        is_ok &= make_test(q, s);
+        assert(is_ok);
+        if (counter % internal_step == 0) {
+            external_iterations++;
+            std::cout << "... iterations: " << counter << ". External: " << 
+                external_iterations << " from " << N << '\n';
+        }
+    }
+}
