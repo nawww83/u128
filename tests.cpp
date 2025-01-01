@@ -82,8 +82,8 @@ void test_division_semi_randomly(long long N)
                                     16384, 16383, 16382, 16385, 16386, 16387, 16388, 
                                     -1ull, -2ull, -3ull, -4ull, -5ull, -6ull, -7ull};
     auto make_test = [&caller](const Quadrupole q, const Signess s) -> bool {
-        return test_div(U128{.mHigh = q.A, .mLow = q.B, .mSign = s.s1},
-                        U128{.mHigh = q.C, .mLow = q.D, .mSign = s.s2},
+        return test_div(U128{q.B, q.A, u128::Sign{s.s1}},
+                        U128{q.D, q.C, u128::Sign{s.s2}},
                         caller);
     };
     auto get_quadrupole = [&choice]() -> Quadrupole {
@@ -122,8 +122,8 @@ void test_division_randomly(long long N)
     }
     PythonCaller caller;
     auto make_test = [&caller](const Quadrupole q, const Signess s) -> bool {
-        return test_div(U128{.mHigh = q.A, .mLow = q.B, .mSign = s.s1},
-                        U128{.mHigh = q.C, .mLow = q.D, .mSign = s.s2},
+        return test_div(U128{q.B, q.A, u128::Sign{s.s1}},
+                        U128{q.D, q.C, u128::Sign{s.s2}},
                         caller);
     };
     auto get_quadrupole = []() -> Quadrupole {

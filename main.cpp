@@ -9,8 +9,8 @@ int main(int argc, char* argv[]) {
     }
     { // An example of division of two 128-bit numbers.
         using namespace u128;
-        U128 z1 {.mHigh = 47, .mLow = 345}; // (47*2^64 + 345) / (3*2^64 + 6632)
-        U128 z2 {.mHigh = 3, .mLow = 6632};
+        U128 z1 {345, 47}; // (47*2^64 + 345) / (3*2^64 + 6632)
+        U128 z2 {6632, 3};
         U128 result = z1 / z2;
         std::cout << "Example: " << z1.value() << " / " << z2.value() << " = " << result.value() << '\n';
     }
