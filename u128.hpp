@@ -575,7 +575,8 @@ inline U128 isqrt(U128 x) {
     }
     const U128 c {ULOW(1) << U128::mHalfWidth, 0};
     U128 result;
-    if (x > c) {
+    x = x.abs();
+    if (x >= U128{0, 1}) {
         result = c;
     } else {
         result = U128 {ULOW(1) << (U128::mHalfWidth / 2), 0};
