@@ -27,6 +27,12 @@ struct Signess { // Структура для задания знаков дву
     bool s2;
 };
 
+struct Dipole { // Структура для задания числа (A*M + B).
+    // M - множитель системы счисления, 2^W, W = 64 - битовая ширина половинок.
+    ULOW A;
+    ULOW B;
+};
+
 static constexpr char DIGITS[10]{'0', '1', '2', '3', '4',
                                  '5', '6', '7', '8', '9'};
 
@@ -490,8 +496,8 @@ struct U128 {
     }
 
     /**
- * Возвращает строковое представление числа.
- */
+    * Возвращает строковое представление числа.
+    */
     std::string value() const {
         std::string result{};
         if (this->is_overflow()) {
@@ -561,6 +567,35 @@ inline U128 shl64(U128 x) { // x * 2^64
         result.set_overflow();
     }
     return result;
+}
+
+inline U128 isqrt(U128 x) {
+    if (x.is_singular()) {
+        return x;
+    }
+    const U128 c {ULOW(1) << U128::mHalfWidth, 0};
+    U128 result;
+    if (x > c) {
+        result = c;
+    } else {
+        result = U128 {ULOW(1) << (U128::mHalfWidth / 2), 0};
+    }
+    U128 prevprev = get_unit_neg();
+    U128 prev = x;
+    for (;;) {
+        prevprev = prev;
+        prev = result;
+        result = (result + x / result) / 2;
+        if (result.is_zero()) {
+            return result;
+        }
+        if (result == prev) {
+            return result;
+        }
+        if (result == prevprev) {
+            return prev;
+        }
+    }
 }
 
 inline U128 get_by_digit(int digit) {

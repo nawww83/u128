@@ -48,9 +48,17 @@ PyObject *PythonCaller::Divide(U128 X, U128 Y) const
     return PyDict_GetItemString(mLocalDictionary, "quotient");
 }
 
-bool PythonCaller::Compare(PyObject *quotient, const char *reference) const
+PyObject *PythonCaller::ISqrt(U128 X) const
 {
-    PyObject* repr = PyObject_Repr(quotient);
+    const char* pythonScript = "import math;y = math.isqrt(x)\n";
+    PyDict_SetItemString(mLocalDictionary, "x", PyLong_FromString(X.value().c_str(), nullptr, 10));
+    PyRun_String(pythonScript, Py_file_input, mGlobalDictionary, mLocalDictionary);
+    return PyDict_GetItemString(mLocalDictionary, "y");
+}
+
+bool PythonCaller::Compare(PyObject *result, const char *reference) const
+{
+    PyObject* repr = PyObject_Repr(result);
     PyObject* str = PyUnicode_AsEncodedString(repr, "utf-8", "~E~");
     const char *bytes = PyBytes_AsString(str);
     const bool is_ok = strcmp(bytes, reference) == 0;
@@ -68,6 +76,89 @@ bool test_div(U128 z1, U128 z2, PythonCaller &caller)
     const U128 z3 = z1 / z2;
     PyObject* quotient = caller.Divide(z1, z2);
     return caller.Compare(quotient, z3.value().c_str());
+}
+
+bool test_isqrt(U128 z, PythonCaller &caller)
+{
+    const U128 zi = isqrt(z);
+    PyObject* zs = caller.ISqrt(z);
+    return caller.Compare(zs, zi.value().c_str());
+}
+
+void test_isqrt_semi_randomly(long long N)
+{
+    if (N < 1) {
+        std::cout << "Skipped!\n";
+        return;
+    }
+    PythonCaller caller;
+    const std::vector<ULOW> choice {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 
+                                    65535, 65534, 65533, 65532, 65531, 65530, 
+                                    16384, 16383, 16382, 16385, 16386, 16387, 16388, 
+                                    -1ull, -2ull, -3ull, -4ull, -5ull, -6ull, -7ull};
+    auto make_test = [&caller](const Dipole q) -> bool {
+        return test_isqrt(U128{q.B, q.A},
+                        caller);
+    };
+    auto get_dipole = [&choice]() -> Dipole {
+        auto idx1 = roll_uint() % choice.size();
+        auto idx2 = roll_uint() % choice.size();
+        Dipole q {choice[idx1], choice[idx2]};
+        return q;
+    };
+    long long counter = 0;
+    long long external_iterations = 0;
+    bool is_ok = true;
+    while (external_iterations < N) {
+        ++counter;
+        const auto dp = get_dipole();
+        is_ok &= make_test(dp);
+        if (!is_ok) {
+            auto x = U128{dp.B, dp.A};
+            std::cout << "x: " << x.value() << std::endl;
+        }
+        assert(is_ok);
+        if (counter % internal_step == 0) {
+            external_iterations++;
+            std::cout << "... iterations: " << counter << ". External: " << 
+                external_iterations << " from " << N << '\n';
+        }
+    }
+}
+
+void test_isqrt_randomly(long long N)
+{
+    if (N < 1) {
+        std::cout << "Skipped!\n";
+        return;
+    }
+    PythonCaller caller;
+    auto make_test = [&caller](const Dipole q) -> bool {
+        return test_isqrt(U128{q.B, q.A},
+                        caller);
+    };
+    auto get_dipole = []() -> Dipole {
+        Dipole d {roll_ulow(), roll_ulow()};
+        return d;
+    };
+    long long counter = 0;
+    long long external_iterations = 0;
+    bool is_ok = true;
+    while (external_iterations < N) {
+        ++counter;
+        const auto dp = get_dipole();
+        is_ok &= make_test(dp);
+        if (!is_ok) {
+            auto x = U128{dp.B, dp.A};
+            std::cout << "x: " << x.value() << std::endl;
+        }
+        assert(is_ok);
+        if (counter % internal_step == 0) {
+            external_iterations++;
+            std::cout << "... iterations: " << counter << ". External: " << 
+                external_iterations << " from " << N << '\n';
+        }
+    }
 }
 
 void test_division_semi_randomly(long long N)
