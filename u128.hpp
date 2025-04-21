@@ -651,10 +651,6 @@ inline std::map<U128, int> factor(U128 x) {
         else if (b == U128{1, 0}) {
             result[a]++;
             return;
-        } else if (a == b) { // В методе Ферма цикл начинается с нуля, чтобы поймать это условие.
-            result[a]++;
-            result[b]++;
-            return;
         }
         ferma_recursive(a);
         ferma_recursive(b);
