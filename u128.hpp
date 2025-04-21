@@ -631,10 +631,24 @@ inline std::pair<U128, U128> ferma_method(U128 x) {
         return std::make_pair(x_sqrt, x_sqrt);
     }
     const auto error = x - x_sqrt * x_sqrt;
-    for (auto k = u128::get_unit();; k += u128::get_unit()) {
-        const auto y = U128{2, 0} * k * x_sqrt + k * k - error;
+    auto y = U128{2, 0} * x_sqrt + u128::get_unit() - error;
+    for (auto k = u128::get_unit(); ; k += u128::get_unit()) {
+        if (k > U128(1, 0)) { // Проверка с другой стороны: ускоряет поиск.
+            // Основано на равенстве, следующем из метода Ферма: индекс k = (F^2 + x) / (2F) - floor(sqrt(x)).
+            // Здесь F - кандидат в множители, x - раскладываемое число.
+            auto test = (k * k + x) / (U128{2, 0} * k); // Здесь k как некоторый множитель F.
+            const bool has_reseque = test.mHasReseque;
+            test -= x_sqrt; // Особенность: теряется флаг mHasReseque, поэтому вычитаем после сохранения флага.
+            if ( test.is_positive() && !has_reseque) {
+                auto tmp = x / k;
+                if (!tmp.mHasReseque) // На всякий случай оставим.
+                    return std::make_pair(k, tmp);
+            }
+        }
         bool exact;
         auto y_sqrt = isqrt(y, exact);
+        const auto delta = U128{2, 0} * x_sqrt + U128{2, 0} * k + u128::get_unit();
+        y = y + delta;
         if (!exact)
             continue;
         return std::make_pair(x_sqrt + k - y_sqrt, x_sqrt + k + y_sqrt);

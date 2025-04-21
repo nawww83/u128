@@ -128,7 +128,7 @@ int main(int argc, char* argv[]) {
         assert(check_factors(factors, x));
     }
     {
-        const U128 x = U128{199933, 0} * U128{999331, 0} * U128{9311, 0}; // Медленно.
+        const U128 x = U128{199933, 0} * U128{999331, 0} * U128{9311, 0}; // Медленно, но при использовании ускорящего блока нормально.
         auto factors = u128::factor(x);
         std::cout << "x = " << x.value() << ", factors: {";
         for (int c = 0; const auto& [p, i] : factors) {
