@@ -3,6 +3,7 @@
 #include <algorithm> // std::reverse
 #include <map>       // std::map
 #include <string>    // std::string
+#include <cassert>   // assert
 #include <utility>   // std::pair
 #include <functional> // std::function
 #include <tuple> // std::ignore, std::tie
@@ -569,6 +570,20 @@ inline U128 shl64(U128 x) { // x * 2^64
         result.set_overflow();
     }
     return result;
+}
+
+/**
+ * @brief Количество цифр числа.
+ * @param x Число.
+ * @return Количество цифр, минимум 1.
+ */
+inline int num_of_digits(U128 x) {
+    int i = 0;
+    while (!x.is_zero()) {
+        x = x.div10();
+        i++;
+    }
+    return i + (i == 0);
 }
 
 /**

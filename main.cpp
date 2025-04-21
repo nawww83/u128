@@ -37,7 +37,9 @@ int main(int argc, char* argv[]) {
         std::cout << "Ok\n";
     }
     if (g_tests & 0b100) {
+        std::cout << "Run Ferma factorization method test...\n";
         ferma_tests();
+        std::cout << "Ok\n";
     }
     return 0;
 }
