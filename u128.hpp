@@ -609,6 +609,19 @@ inline U128 isqrt(U128 x, bool& exact) {
     }
 }
 
+inline bool is_prime(U128 x) {
+    [[maybe_unused]] bool exact;
+    const auto x_sqrt = isqrt(x, exact) + u128::get_unit();
+    U128 d {2, 0};
+    bool is_ok = true;
+    while (d < x_sqrt) {
+        auto [_, remainder] = x / d;
+        is_ok &= !remainder.is_zero();
+        d += u128::get_unit();
+    }
+    return is_ok;
+}
+
 inline std::pair<U128, int> div_by_2(U128& x) {
     auto [tmp, remainder] = x / 2;
     int i = 0;
@@ -652,8 +665,17 @@ inline std::pair<U128, U128> ferma_method(U128 x) {
 };
 
 inline std::map<U128, int> factor(U128 x) {
-    std::map<U128, int> result{};
+    if (x.is_zero()) {
+        return {{x, 1}};
+    }
+    if (x == u128::get_unit()) {
+        return {{x, 1}};
+    }
+    if (x.is_singular()) {
+        return {{x, 1}};
+    }
     x = x.abs();
+    std::map<U128, int> result{};
     // Делим на 2 до упора.
     {
         auto [p, i] = div_by_2(x);

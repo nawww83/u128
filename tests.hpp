@@ -83,3 +83,8 @@ void test_division_semi_randomly(long long N);
  * @param N Количество внешних итераций.
 */
 void test_division_randomly(long long N);
+
+/**
+ * Тест факторизации метода Ферма.
+ */
+void ferma_tests();
