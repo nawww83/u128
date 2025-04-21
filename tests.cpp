@@ -73,7 +73,7 @@ bool PythonCaller::Compare(PyObject *result, const char *reference) const
 
 bool test_div(U128 z1, U128 z2, PythonCaller &caller)
 {
-    const U128 z3 = z1 / z2;
+    const auto [z3, _] = z1 / z2;
     PyObject* quotient = caller.Divide(z1, z2);
     return caller.Compare(quotient, z3.value().c_str());
 }
@@ -82,8 +82,9 @@ bool test_isqrt(U128 z, PythonCaller &caller)
 {
     bool exact;
     const U128 zi = isqrt(z, exact);
+    const bool is_ok = exact == ((zi * zi) == z);
     PyObject* zs = caller.ISqrt(z);
-    return caller.Compare(zs, zi.value().c_str());
+    return caller.Compare(zs, zi.value().c_str()) && is_ok;
 }
 
 void test_isqrt_semi_randomly(long long N)

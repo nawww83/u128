@@ -5,6 +5,7 @@
 #include <string>    // std::string
 #include <utility>   // std::pair
 #include <functional> // std::function
+#include <tuple> // std::ignore, std::tie
 
 namespace u128 {
 
@@ -98,8 +99,6 @@ struct U128 {
     ULOW mHigh = 0;
     Sign mSign{};
     Singular mSingular{};
-    // Есть ли остаток при вызванном делении.
-    bool mHasReseque = false;
 
     explicit constexpr U128() = default;
 
@@ -404,17 +403,17 @@ struct U128 {
     // Наиболее вероятное количество итераций: ~N/4, где N - количество битов узкого числа.
     // В данном случае имеем ~64/4 = 16 итераций.
     // Максимум до ~(N+1) итерации.
-    U128 operator/(ULOW y) const {
+    std::pair<U128, U128> operator/(ULOW y) const {
         assert(y != 0);
         const U128 X = *this;
         if (X.is_singular()) {
-            return X;
+            return std::make_pair(X, u128::get_zero());
         }
         ULOW Q = X.mHigh / y;
         ULOW R = X.mHigh % y;
         ULOW N = R * (mMaxULOW / y) + (X.mLow / y);
         U128 result{N, Q, X.mSign};
-        U128 E = X - result * y; // Ошибка от деления: остаток от деления.
+        U128 E = X - result * y; // Остаток от деления.
         for (;;) {
             Q = E.mHigh / y;
             R = E.mHigh % y;
@@ -431,34 +430,34 @@ struct U128 {
             U128 tmp {y, 0};
             E += tmp;
         }
-        result.mHasReseque = !E.is_zero();
-        return result;
+        return std::make_pair(result, E);
     }
 
-    U128& operator/=(ULOW y) {
-        *this = *this / y;
-        return *this;
+    std::pair<U128, U128> operator/=(ULOW y) {
+        U128 remainder;
+        std::tie(*this, remainder) = *this / y;
+        return std::make_pair(*this, remainder);
     }
 
     // Метод деления двух широких чисел.
     // Отсутствует "раскачка" алгоритма для "плохих" случаев деления: (A*M + B)/(1*M + D).
     // Наиболее вероятное общее количество итераций: 4...6.
-    U128 operator/(const U128 other) const {
+    std::pair<U128, U128> operator/(const U128 other) const {
         U128 X = *this;
         U128 Y = other;
         if (X.is_overflow() || Y.is_overflow()) {
             U128 result;
             result.set_overflow();
-            return result;
+            return std::make_pair(result, u128::get_zero());
         }
         if (X.is_nan() || Y.is_nan()) {
             U128 result;
             result.set_nan();
-            return result;
+            return std::make_pair(result, u128::get_zero());
         }
         if (Y.mHigh == 0) {
             X.mSign = X.mSign() ^ Y.mSign();
-            U128 result = X / Y.mLow;
+            auto result = X / Y.mLow;
             return result;
         }
         const bool make_sign_inverse = X.mSign != Y.mSign;
@@ -472,8 +471,8 @@ struct U128 {
         W1 = W1 + DeltaQ;
         const ULOW C1 = (Y.mHigh < mMaxULOW) ? Y.mHigh + ULOW(1) : mMaxULOW;
         const ULOW W2 = mMaxULOW - Delta / C1;
-        U128 Quotient = W1 / W2;
-        Quotient = Quotient / C1;
+        auto [Quotient, _] = W1 / W2;
+        std::tie(Quotient, std::ignore) = Quotient / C1;
         U128 result = U128{Q, 0} + Quotient;
         if (make_sign_inverse) {result = -result;}
         U128 N = Y * result.mLow;
@@ -495,8 +494,7 @@ struct U128 {
             do_inc = More.is_nonegative();
             do_dec = Error.is_negative();
         }
-        result.mHasReseque = !Error.is_zero();
-        return result;
+        return std::make_pair(result, Error);
     }
 
     /**
@@ -595,14 +593,14 @@ inline U128 isqrt(U128 x, bool& exact) {
     for (;;) {
         prevprev = prev;
         prev = result;
-        const auto tmp = x / result;
-        result = (result + tmp) / 2;
+        const auto [tmp, remainder] = x / result;
+        std::tie(result, std::ignore) = (result + tmp) / 2;
         if (result.is_zero()) {
             exact = true;
             return result;
         }
         if (result == prev) {
-            exact = (tmp == prev) && !tmp.mHasReseque; // Нет остатка от деления.
+            exact = (tmp == prev) && remainder.is_zero(); // Нет остатка от деления.
             return result;
         }
         if (result == prevprev) {
@@ -612,14 +610,12 @@ inline U128 isqrt(U128 x, bool& exact) {
 }
 
 inline std::pair<U128, int> div_by_2(U128& x) {
-    U128 tmp = x / 2;
-    U128 error = tmp*2 - x;
+    auto [tmp, remainder] = x / 2;
     int i = 0;
-    while (error.is_zero()) {
+    while (remainder.is_zero()) {
         i++;
         x = tmp;
-        tmp = x / 2;
-        error = tmp*2 - x;
+        std::tie(tmp, remainder) = x / 2;
     }
     return std::make_pair(U128{2, 0}, i);
 }
@@ -636,12 +632,11 @@ inline std::pair<U128, U128> ferma_method(U128 x) {
         if (k > U128(1, 0)) { // Проверка с другой стороны: ускоряет поиск.
             // Основано на равенстве, следующем из метода Ферма: индекс k = (F^2 + x) / (2F) - floor(sqrt(x)).
             // Здесь F - кандидат в множители, x - раскладываемое число.
-            auto test = (k * k + x) / (U128{2, 0} * k); // Здесь k как некоторый множитель F.
-            const bool has_reseque = test.mHasReseque;
-            test -= x_sqrt; // Особенность: теряется флаг mHasReseque, поэтому вычитаем после сохранения флага.
-            if ( test.is_positive() && !has_reseque) {
-                auto tmp = x / k;
-                if (!tmp.mHasReseque) // На всякий случай оставим.
+            auto [test, remainder] = (k * k + x) / (U128{2, 0} * k); // Здесь k как некоторый множитель F.
+            test -= x_sqrt;
+            if ( test.is_positive() && remainder.is_zero()) {
+                auto [tmp, remainder] = x / k;
+                if (remainder.is_zero()) // На всякий случай оставим.
                     return std::make_pair(k, tmp);
             }
         }
