@@ -22,13 +22,24 @@ int main(int argc, char* argv[]) {
     // test_division_randomly(N);
     // std::cout << "Ok\n";
 
-    std::cout << "Run semi-random isqrt test...\n";
-    test_isqrt_semi_randomly(N);
-    std::cout << "Ok\n";
+    // std::cout << "Run semi-random isqrt test...\n";
+    // test_isqrt_semi_randomly(N);
+    // std::cout << "Ok\n";
 
-    std::cout << "Run random isqrt test...\n";
-    test_isqrt_randomly(N);
-    std::cout << "Ok\n";
+    // std::cout << "Run random isqrt test...\n";
+    // test_isqrt_randomly(N);
+    // std::cout << "Ok\n";
 
+    U128 x = U128{1129, 0} * U128{7823, 0} * U128{8, 0} * U128{81, 0} * U128{3, 0};
+    auto factors = u128::factor(x);
+    std::cout << "x = " << x.value() << ", factors: {";
+    for (int c = 0; const auto& [p, i] : factors) {
+        if (c > 0) {
+            std::cout << ", ";
+        }
+        std::cout << "(" << p.value() << ", " << i << ")";
+        c++;
+    }
+    std::cout << "}\n";
     return 0;
 }

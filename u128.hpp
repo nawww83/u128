@@ -1,10 +1,10 @@
 #pragma once
 
 #include <algorithm> // std::reverse
-#include <cassert>
-#include <cstdint>
-#include <climits>
-#include <string> // std::string
+#include <map>       // std::map
+#include <string>    // std::string
+#include <utility>   // std::pair
+#include <functional> // std::function
 
 namespace u128 {
 
@@ -569,6 +569,9 @@ inline U128 shl64(U128 x) { // x * 2^64
     return result;
 }
 
+/**
+ * Целочисленный квадратный корень.
+ */
 inline U128 isqrt(U128 x) {
     if (x.is_singular()) {
         return x;
@@ -599,9 +602,69 @@ inline U128 isqrt(U128 x) {
     }
 }
 
+inline std::pair<U128, int> div_by_2(U128& x) {
+    U128 tmp = x / 2;
+    U128 error = tmp*2 - x;
+    int i = 0;
+    while (error.is_zero()) {
+        i++;
+        x = tmp;
+        tmp = x / 2;
+        error = tmp*2 - x;
+    }
+    return std::make_pair(U128{2, 0}, i);
+}
+
+inline std::pair<U128, U128> ferma_method(U128 x) {
+    const auto x_sqrt = isqrt(x);
+    for (ULOW k = 0; ; ++k) { // Начинаем именно с 0.
+        auto y = (x_sqrt + U128{k, 0})*(x_sqrt + U128{k, 0}) - x;
+        auto y_sqrt = isqrt(y);
+        auto error = y_sqrt * y_sqrt - y;
+        if (error.is_zero()) {
+            return std::make_pair(x_sqrt + U128{k, 0} - y_sqrt, x_sqrt + U128{k, 0} + y_sqrt);
+        }
+    }
+};
+
+inline std::map<U128, int> factor(U128 x) {
+    std::map<U128, int> result{};
+    x = x.abs();
+    // Делим на 2 до упора.
+    {
+        auto [p, i] = div_by_2(x);
+        if (i > 0)
+            result[p] = i;
+        if (x < U128{2, 0}) {
+            return result;
+        }
+    }
+    // Применяем метод Ферма рекурсивно.
+    std::function<void(U128)> ferma_recursive;
+    ferma_recursive = [&ferma_recursive, &result](U128 x) -> void {
+        auto [a, b] = ferma_method(x);
+        // std::cout << "x = " << x.value() << " = " << a.value() << " * " << b.value() << '\n';
+        if (a == U128{1, 0}) {
+            result[b]++;
+            return;
+        }
+        else if (b == U128{1, 0}) {
+            result[a]++;
+            return;
+        } else if (a == b) { // В методе Ферма цикл начинается с нуля, чтобы поймать это условие.
+            result[a]++;
+            result[b]++;
+            return;
+        }
+        ferma_recursive(a);
+        ferma_recursive(b);
+    };
+    ferma_recursive(x);
+    return result;
+}
+
 inline U128 get_by_digit(int digit) {
     return U128{static_cast<u128::ULOW>(digit), 0};
 }
-
 
 } // namespace u128
