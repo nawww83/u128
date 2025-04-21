@@ -30,6 +30,11 @@ int main(int argc, char* argv[]) {
     // test_isqrt_randomly(N);
     // std::cout << "Ok\n";
 
+    // bool exact;
+    // U128 x{25, 0};
+    // auto y = u128::isqrt(x, exact);
+    // std::cout << y.value() << ", " << exact << '\n';
+
     auto check_factors = [](const std::map<U128, int>& factors, U128 x) -> bool {
         U128 tmp {1, 0};
         for (const auto& [p, i] : factors) {
@@ -109,8 +114,21 @@ int main(int argc, char* argv[]) {
         assert(check_factors(factors, x));
     }
     {
-        // const U128 x = U128{199933, 0} * U128{999331, 0} * U128{9311, 0}; // Медленно.
         const U128 x = U128{199933, 0} * U128{999331, 0}* U128{113, 0};
+        auto factors = u128::factor(x);
+        std::cout << "x = " << x.value() << ", factors: {";
+        for (int c = 0; const auto& [p, i] : factors) {
+            if (c > 0) {
+                std::cout << ", ";
+            }
+            std::cout << "(" << p.value() << ", " << i << ")";
+            c++;
+        }
+        std::cout << "}\n";
+        assert(check_factors(factors, x));
+    }
+    {
+        const U128 x = U128{199933, 0} * U128{999331, 0} * U128{9311, 0}; // Медленно.
         auto factors = u128::factor(x);
         std::cout << "x = " << x.value() << ", factors: {";
         for (int c = 0; const auto& [p, i] : factors) {

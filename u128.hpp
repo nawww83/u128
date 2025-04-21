@@ -98,6 +98,8 @@ struct U128 {
     ULOW mHigh = 0;
     Sign mSign{};
     Singular mSingular{};
+    // Есть ли остаток при вызванном делении.
+    bool mHasReseque = false;
 
     explicit constexpr U128() = default;
 
@@ -429,6 +431,7 @@ struct U128 {
             U128 tmp {y, 0};
             E += tmp;
         }
+        result.mHasReseque = !E.is_zero();
         return result;
     }
 
@@ -492,6 +495,7 @@ struct U128 {
             do_inc = More.is_nonegative();
             do_dec = Error.is_negative();
         }
+        result.mHasReseque = !Error.is_zero();
         return result;
     }
 
@@ -571,8 +575,10 @@ inline U128 shl64(U128 x) { // x * 2^64
 
 /**
  * Целочисленный квадратный корень.
+ * @param exact Точно ли прошло извлечение корня.
  */
-inline U128 isqrt(U128 x) {
+inline U128 isqrt(U128 x, bool& exact) {
+    exact = false;
     if (x.is_singular()) {
         return x;
     }
@@ -589,11 +595,14 @@ inline U128 isqrt(U128 x) {
     for (;;) {
         prevprev = prev;
         prev = result;
-        result = (result + x / result) / 2;
+        const auto tmp = x / result;
+        result = (result + tmp) / 2;
         if (result.is_zero()) {
+            exact = true;
             return result;
         }
         if (result == prev) {
+            exact = (tmp == prev) && !tmp.mHasReseque; // Нет остатка от деления.
             return result;
         }
         if (result == prevprev) {
@@ -616,15 +625,21 @@ inline std::pair<U128, int> div_by_2(U128& x) {
 }
 
 inline std::pair<U128, U128> ferma_method(U128 x) {
-    const auto x_sqrt = isqrt(x);
-    for (ULOW k = 0; ; ++k) { // Начинаем именно с 0.
-        auto y = (x_sqrt + U128{k, 0})*(x_sqrt + U128{k, 0}) - x;
-        auto y_sqrt = isqrt(y);
-        auto error = y_sqrt * y_sqrt - y;
-        if (error.is_zero()) {
-            return std::make_pair(x_sqrt + U128{k, 0} - y_sqrt, x_sqrt + U128{k, 0} + y_sqrt);
-        }
+    bool exact;
+    const auto x_sqrt = isqrt(x, exact);
+    if (exact) {
+        return std::make_pair(x_sqrt, x_sqrt);
     }
+    const auto error = x - x_sqrt * x_sqrt;
+    for (auto k = u128::get_unit();; k += u128::get_unit()) {
+        const auto y = U128{2, 0} * k * x_sqrt + k * k - error;
+        bool exact;
+        auto y_sqrt = isqrt(y, exact);
+        if (!exact)
+            continue;
+        return std::make_pair(x_sqrt + k - y_sqrt, x_sqrt + k + y_sqrt);
+    }
+    return std::make_pair(x, U128{1, 0}); // По какой-то причине не раскладывается.
 };
 
 inline std::map<U128, int> factor(U128 x) {
@@ -643,7 +658,6 @@ inline std::map<U128, int> factor(U128 x) {
     std::function<void(U128)> ferma_recursive;
     ferma_recursive = [&ferma_recursive, &result](U128 x) -> void {
         auto [a, b] = ferma_method(x);
-        // std::cout << "x = " << x.value() << " = " << a.value() << " * " << b.value() << '\n';
         if (a == U128{1, 0}) {
             result[b]++;
             return;

@@ -80,7 +80,8 @@ bool test_div(U128 z1, U128 z2, PythonCaller &caller)
 
 bool test_isqrt(U128 z, PythonCaller &caller)
 {
-    const U128 zi = isqrt(z);
+    bool exact;
+    const U128 zi = isqrt(z, exact);
     PyObject* zs = caller.ISqrt(z);
     return caller.Compare(zs, zi.value().c_str());
 }
