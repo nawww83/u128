@@ -409,7 +409,7 @@ void ferma_tests() {
         assert(check_factors(factors, x));
     }
     {
-        const U128 x = U128{106033, 0} * U128{13669, 0} * U128{3085553, 0} * U128{2269, 0};
+        const U128 x = U128{260002090171961, 0};
         auto factors = u128::factor(x);
         std::cout << "x = " << x.value() << ", factors: {";
         for (int c = 0; const auto& [p, i] : factors) {
