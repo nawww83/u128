@@ -637,15 +637,15 @@ inline bool is_prime(U128 x) {
     return is_ok;
 }
 
-inline std::pair<U128, int> div_by_2(U128& x) {
-    auto [tmp, remainder] = x / 2;
+inline std::pair<U128, int> div_by_q(U128& x, ULOW q) {
+    auto [tmp, remainder] = x / q;
     int i = 0;
     while (remainder.is_zero()) {
         i++;
         x = tmp;
-        std::tie(tmp, remainder) = x / 2;
+        std::tie(tmp, remainder) = x / q;
     }
-    return std::make_pair(U128{2, 0}, i);
+    return std::make_pair(U128{q, 0}, i);
 }
 
 inline std::pair<U128, U128> ferma_method(U128 x) {
@@ -672,6 +672,8 @@ inline std::pair<U128, U128> ferma_method(U128 x) {
             }
         }
         bool exact;
+        if (auto r = y.mod10(); (r != 1 && r != 9)) // Метод решета.
+            continue;
         auto y_sqrt = isqrt(y, exact);
         const auto delta = U128{2, 0} * x_sqrt + U128{2, 0} * k + u128::get_unit();
         y = y + delta;
@@ -694,9 +696,13 @@ inline std::map<U128, int> factor(U128 x) {
     }
     x = x.abs();
     std::map<U128, int> result{};
-    // Делим на 2 до упора.
+    // Делим на простые из списка.
+    for (const auto& el : std::vector{2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 
+        43, 47, 53, 59, 61, 67, 71, 73, 79, 83, 89, 97, 101, 103, 107, 109, 113, 127, 
+        131, 137, 139, 149, 151, 157, 163, 167, 173, 179, 181, 191, 193, 197, 199, 211, 
+        223, 227, 229, 233, 239, 241, 251, 257, 263, 269, 271, 277, 281, 283, 293})
     {
-        auto [p, i] = div_by_2(x);
+        auto [p, i] = div_by_q(x, el);
         if (i > 0)
             result[p] = i;
         if (x < U128{2, 0}) {

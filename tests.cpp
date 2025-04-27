@@ -256,8 +256,9 @@ void ferma_tests() {
     };
     {
         const U128 x = U128{1129, 0} * U128{7823, 0} * U128{8, 0} * U128{81, 0} * U128{3, 0};
-        auto factors = u128::factor(x);
         std::cout << "x = " << x.value() << ", factors: {";
+        std::cout << std::flush;
+        auto factors = u128::factor(x);
         for (int c = 0; const auto& [p, i] : factors) {
             if (c > 0) {
                 std::cout << ", ";
@@ -270,8 +271,9 @@ void ferma_tests() {
     }
     {
         const U128 x = U128{625, 0};
-        auto factors = u128::factor(x);
         std::cout << "x = " << x.value() << ", factors: {";
+        std::cout << std::flush;
+        auto factors = u128::factor(x);
         for (int c = 0; const auto& [p, i] : factors) {
             if (c > 0) {
                 std::cout << ", ";
@@ -284,8 +286,9 @@ void ferma_tests() {
     }
     {
         const U128 x = U128{625, 0} * U128{81, 0};
-        auto factors = u128::factor(x);
         std::cout << "x = " << x.value() << ", factors: {";
+        std::cout << std::flush;
+        auto factors = u128::factor(x);
         for (int c = 0; const auto& [p, i] : factors) {
             if (c > 0) {
                 std::cout << ", ";
@@ -298,8 +301,9 @@ void ferma_tests() {
     }
     {
         const U128 x = U128{81, 0};
-        auto factors = u128::factor(x);
         std::cout << "x = " << x.value() << ", factors: {";
+        std::cout << std::flush;
+        auto factors = u128::factor(x);
         for (int c = 0; const auto& [p, i] : factors) {
             if (c > 0) {
                 std::cout << ", ";
@@ -312,8 +316,9 @@ void ferma_tests() {
     }
     {
         const U128 x = U128{113, 0};
-        auto factors = u128::factor(x);
         std::cout << "x = " << x.value() << ", factors: {";
+        std::cout << std::flush;
+        auto factors = u128::factor(x);
         for (int c = 0; const auto& [p, i] : factors) {
             if (c > 0) {
                 std::cout << ", ";
@@ -326,8 +331,9 @@ void ferma_tests() {
     }
     {
         const U128 x = U128{1, 0};
-        auto factors = u128::factor(x);
         std::cout << "x = " << x.value() << ", factors: {";
+        std::cout << std::flush;
+        auto factors = u128::factor(x);
         for (int c = 0; const auto& [p, i] : factors) {
             if (c > 0) {
                 std::cout << ", ";
@@ -340,8 +346,9 @@ void ferma_tests() {
     }
     {
         const U128 x = U128{2, 0};
-        auto factors = u128::factor(x);
         std::cout << "x = " << x.value() << ", factors: {";
+        std::cout << std::flush;
+        auto factors = u128::factor(x);
         for (int c = 0; const auto& [p, i] : factors) {
             if (c > 0) {
                 std::cout << ", ";
@@ -354,8 +361,9 @@ void ferma_tests() {
     }
     {
         const U128 x = U128{0, 0};
-        auto factors = u128::factor(x);
         std::cout << "x = " << x.value() << ", factors: {";
+        std::cout << std::flush;
+        auto factors = u128::factor(x);
         for (int c = 0; const auto& [p, i] : factors) {
             if (c > 0) {
                 std::cout << ", ";
@@ -368,8 +376,9 @@ void ferma_tests() {
     }
     {
         const U128 x = U128{3, 0};
-        auto factors = u128::factor(x);
         std::cout << "x = " << x.value() << ", factors: {";
+        std::cout << std::flush;
+        auto factors = u128::factor(x);
         for (int c = 0; const auto& [p, i] : factors) {
             if (c > 0) {
                 std::cout << ", ";
@@ -382,8 +391,9 @@ void ferma_tests() {
     }
     {
         const U128 x = U128{199933, 0} * U128{999331, 0}* U128{113, 0};
-        auto factors = u128::factor(x);
         std::cout << "x = " << x.value() << ", factors: {";
+        std::cout << std::flush;
+        auto factors = u128::factor(x);
         for (int c = 0; const auto& [p, i] : factors) {
             if (c > 0) {
                 std::cout << ", ";
@@ -395,9 +405,10 @@ void ferma_tests() {
         assert(check_factors(factors, x));
     }
     {
-        const U128 x = U128{199933, 0} * U128{999331, 0} * U128{9311, 0}; // Медленно, но при использовании ускорящего блока нормально.
-        auto factors = u128::factor(x);
+        const U128 x = U128{199933, 0} * U128{999331, 0} * U128{9311, 0};
         std::cout << "x = " << x.value() << ", factors: {";
+        std::cout << std::flush;
+        auto factors = u128::factor(x);
         for (int c = 0; const auto& [p, i] : factors) {
             if (c > 0) {
                 std::cout << ", ";
@@ -409,9 +420,10 @@ void ferma_tests() {
         assert(check_factors(factors, x));
     }
     {
-        const U128 x = U128{260002090171961, 0};
-        auto factors = u128::factor(x);
+        const U128 x = U128{2345678917ull, 0};
         std::cout << "x = " << x.value() << ", factors: {";
+        std::cout << std::flush;
+        auto factors = u128::factor(x);
         for (int c = 0; const auto& [p, i] : factors) {
             if (c > 0) {
                 std::cout << ", ";
@@ -422,4 +434,50 @@ void ferma_tests() {
         std::cout << "}\n";
         assert(check_factors(factors, x));
     }
+    {
+        const U128 x = U128{-1ull, -1ull}; // 340 282 366 920 938 463 463 374 607 431 768 211 455
+        std::cout << "x = " << x.value() << ", factors: {";
+        std::cout << std::flush;
+        auto factors = u128::factor(x);
+        for (int c = 0; const auto& [p, i] : factors) {
+            if (c > 0) {
+                std::cout << ", ";
+            }
+            std::cout << "(" << p.value() << ", " << i << ")";
+            c++;
+        }
+        std::cout << "}\n";
+        assert(check_factors(factors, x));
+    }
+    { // Медленно: ~2.5 min.
+        const U128 x = U128{2'153'233'344'269'007'091ull, 30ull}; // 555 555 555 555 555 555 571
+        std::cout << "x = " << x.value() << ", factors: {";
+        std::cout << std::flush;
+        auto factors = u128::factor(x);
+        for (int c = 0; const auto& [p, i] : factors) {
+            if (c > 0) {
+                std::cout << ", ";
+            }
+            std::cout << "(" << p.value() << ", " << i << ")";
+            c++;
+        }
+        std::cout << "}\n";
+        assert(check_factors(factors, x));
+    }
+    // { // Оч. медленно.
+    //     std::cout << "Slow case..." << std::endl;
+    //     const U128 x = U128{1'949'801'302'245'154'240ull, 47'578'344'494ull}; // 877 665 544 333 555 776 586 567 556 544
+    //     std::cout << "x = " << x.value() << ", factors: {";
+    //     std::cout << std::flush;
+    //     auto factors = u128::factor(x);
+    //     for (int c = 0; const auto& [p, i] : factors) {
+    //         if (c > 0) {
+    //             std::cout << ", ";
+    //         }
+    //         std::cout << "(" << p.value() << ", " << i << ")";
+    //         c++;
+    //     }
+    //     std::cout << "}\n";
+    //     assert(check_factors(factors, x));
+    // }
 }
