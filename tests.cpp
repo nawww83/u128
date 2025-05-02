@@ -449,7 +449,7 @@ void ferma_tests() {
         std::cout << "}\n";
         assert(check_factors(factors, x));
     }
-    { // Медленно: ~2.5 min.
+    { // Медленно: ~40 sec.
         const U128 x = U128{2'153'233'344'269'007'091ull, 30ull}; // 555 555 555 555 555 555 571
         std::cout << "x = " << x.value() << ", factors: {";
         std::cout << std::flush;
@@ -464,7 +464,7 @@ void ferma_tests() {
         std::cout << "}\n";
         assert(check_factors(factors, x));
     }
-    // { // Оч. медленно.
+    // { // Оч. медленно: ~9 min 12 s.
     //     std::cout << "Slow case..." << std::endl;
     //     const U128 x = U128{1'949'801'302'245'154'240ull, 47'578'344'494ull}; // 877 665 544 333 555 776 586 567 556 544
     //     std::cout << "x = " << x.value() << ", factors: {";
