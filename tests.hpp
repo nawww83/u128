@@ -88,3 +88,18 @@ void test_division_randomly(long long N);
  * Тест факторизации метода Ферма.
  */
 void ferma_tests();
+
+/**
+ * Тесты функции проверки на квадратичный вычет.
+ */
+void quadratic_residue_tests();
+
+/**
+ * Тест факторизации метода квадратичного решета.
+ */
+void qs_factorization_tests();
+
+/**
+ * Тесты решателя СЛАУ.
+ */
+void solver_tests();
