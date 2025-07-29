@@ -3,7 +3,7 @@
 
 int main(int argc, char *argv[])
 {
-    constexpr int g_tests = 8; // Выбор тестов для запуска.
+    constexpr int g_tests = 7; // Выбор тестов для запуска.
     long long N = 3;
     if (argc > 1)
     {

@@ -649,19 +649,19 @@ void solver_tests()
 void qs_factorization_tests()
 {
     using namespace u128::utils;
-    // {
-    //     U128 x {15347ull, 0};
-    //     const auto& result = factor_qs(x, 200, 8);
-    //     std::cout << "QS factorization 1: {";
-    //     int idx = 0;
-    //     for (const auto& [prime, power] : result) {
-    //         std::cout << prime.value() << "^" << power << (idx < (result.size() - 1) ? ", " : "");
-    //         idx++;
-    //     }
-    //     std::cout << "}." << std::endl;
-    //     bool is_ok = result == std::map<U128, int>{{U128{103, 0}, 1}, {U128{149, 0}, 1}};
-    //     assert(is_ok);
-    // }
+    {
+        U128 x {15347ull, 0};
+        const auto& result = factor_qs(x, 200, 8);
+        std::cout << "QS factorization 1: {";
+        int idx = 0;
+        for (const auto& [prime, power] : result) {
+            std::cout << prime.value() << "^" << power << (idx < (result.size() - 1) ? ", " : "");
+            idx++;
+        }
+        std::cout << "}." << std::endl;
+        bool is_ok = result == std::map<U128, int>{{U128{103, 0}, 1}, {U128{149, 0}, 1}};
+        assert(is_ok);
+    }
     const unsigned int sieve_size = 50'000u;
     for (int factor_base = 8;; factor_base++)
     {

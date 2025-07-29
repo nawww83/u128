@@ -6,16 +6,19 @@
 #include <cassert>   // assert
 #include <string>    // std::string
 
-namespace u128
+#include "u128.hpp"
+#include "u128_utils.h"
+
+namespace u256
 {
 
-    using ULOW = uint64_t; // Тип половинок: старшей и младшей частей составного числа.
+    using ULOW = u128::U128; // Тип половинок: старшей и младшей частей составного числа.
 
     static constexpr auto INF = "inf";
 
     struct Quadrupole
     { // Структура для задания дроби (A*M + B) / (C*M + D).
-        // M - множитель системы счисления, 2^W, W = 64 - битовая ширина половинок.
+        // M - множитель системы счисления, 2^W, W = 128 - битовая ширина половинок.
         ULOW A;
         ULOW B;
         ULOW C;
@@ -30,7 +33,7 @@ namespace u128
 
     struct Dipole
     { // Структура для задания числа (A*M + B).
-        // M - множитель системы счисления, 2^W, W = 64 - битовая ширина половинок.
+        // M - множитель системы счисления, 2^W, W = 128 - битовая ширина половинок.
         ULOW A;
         ULOW B;
     };
@@ -84,44 +87,43 @@ namespace u128
         auto operator<=>(const Sign &other) = delete;
     };
 
-    struct U128;
-    U128 shl64(U128 x);
+    struct U256;
 
-    // High/Low структура 128-битного числа со знаком и флагом переполнения.
-    // Для иллюстрации алгоритма деления двух U128 чисел реализованы основные
-    // арифметические операторы, кроме умножения двух U128 чисел.
-    struct U128
+    U256 shl128(U256 x);
+
+    // High/Low структура 256-битного числа со знаком и флагом переполнения.
+    struct U256
     {
         // Битовая полуширина половинок.
-        static constexpr int mHalfWidth = 64 / 2;
+        static constexpr int mHalfWidth = 128 / 2;
         // Наибольшее значение половинок, M-1.
-        static constexpr ULOW mMaxULOW = ULOW(-1);
-        ULOW mLow = 0;
-        ULOW mHigh = 0;
+        static constexpr ULOW mMaxULOW = ULOW::get_max_value();
+        ULOW mLow {0};
+        ULOW mHigh {0};
         Sign mSign{};
         Singular mSingular{};
 
-        explicit constexpr U128() = default;
+        explicit constexpr U256() = default;
 
-        explicit constexpr U128(uint64_t x)
+        explicit constexpr U256(uint64_t x)
             : mLow{x} {};
 
-        explicit constexpr U128(ULOW low, ULOW high, Sign sign = false)
+        explicit constexpr U256(ULOW low, ULOW high, Sign sign = false)
             : mLow{low}, mHigh{high}, mSign{sign} {};
 
-        constexpr U128(const U128 &other) = default;
+        constexpr U256(const U256 &other) = default;
 
-        constexpr U128(U128 &&other) = default;
+        constexpr U256(U256 &&other) = default;
 
-        constexpr U128 &operator=(const U128 &other) = default;
+        constexpr U256 &operator=(const U256 &other) = default;
 
-        bool operator==(const U128 &other) const
+        bool operator==(const U256 &other) const
         {
             const auto has_singular = mSingular != other.mSingular;
             return has_singular ? false : *this <=> other == 0;
         }
 
-        std::partial_ordering operator<=>(const U128 &other) const
+        std::partial_ordering operator<=>(const U256 &other) const
         {
             const auto has_singular = mSingular != other.mSingular;
             if (has_singular)
@@ -154,7 +156,7 @@ namespace u128
                     }
                     else
                     {
-                        return mLow != 0 || mHigh != 0 ? -1 <=> 1 : 1 <=> 1;
+                        return !mLow.is_zero() || !mHigh.is_zero() ? -1 <=> 1 : 1 <=> 1;
                     }
                 }
                 else
@@ -171,7 +173,7 @@ namespace u128
                     }
                     else
                     {
-                        return mLow != 0 || mHigh != 0 ? 1 <=> -1 : 1 <=> 1;
+                        return !mLow.is_zero() || !mHigh.is_zero() ? 1 <=> -1 : 1 <=> 1;
                     }
                 }
             }
@@ -194,12 +196,12 @@ namespace u128
 
         bool is_zero() const
         {
-            return mLow == 0 && mHigh == 0 && !is_singular();
+            return mLow.is_zero() && mHigh.is_zero() && !is_singular();
         }
 
         bool is_unit() const
         {
-            return mLow == 1 && mHigh == 0 && !mSign() && !is_singular();
+            return mLow.is_unit() && mHigh.is_zero() && !mSign() && !is_singular();
         }
 
         bool is_negative() const
@@ -229,58 +231,58 @@ namespace u128
             mSingular.mNaN = 1;
         }
 
-        U128 operator<<(const uint32_t shift) const
+        U256 operator<<(const uint32_t shift) const
         {
-            U128 result = *this;
-            constexpr U128 two {2};
+            U256 result = *this;
+            constexpr U256 two {2};
             for (uint32_t i = 0; i < shift; i++) {
                 result = result * two;
             }
             return result;
         }
 
-        U128 operator>>(const uint32_t shift) const
+        U256 operator>>(const uint32_t shift) const
         {
-            U128 result = *this;
-            constexpr U128 two {2};
+            U256 result = *this;
+            constexpr U256 two {2};
             for (uint32_t i = 0; i < shift; i++) {
                 result = (result / two).first;
             }
             return result;
         }
 
-        U128 operator&(const U128& mask) const
+        U256 operator&(const U256& mask) const
         {
-            U128 result = *this;
+            U256 result = *this;
             result.mLow &= mask.mLow;
             result.mHigh &= mask.mHigh;
             return result;
         }
 
-        U128& operator&=(const U128& mask)
+        U256& operator&=(const U256& mask)
         {
             *this = *this & mask;
             return *this;
         }
 
-        U128 operator-() const
+        U256 operator-() const
         {
-            U128 result = *this;
+            U256 result = *this;
             -result.mSign;
             return result;
         }
 
-        U128 abs() const
+        U256 abs() const
         {
-            U128 result = *this;
+            U256 result = *this;
             result.mSign = false;
             return result;
         }
 
-        U128 operator+(U128 rhs) const
+        U256 operator+(U256 rhs) const
         {
-            U128 result{};
-            U128 X = *this;
+            U256 result{};
+            U256 X = *this;
             if (X.is_singular())
             {
                 return X;
@@ -303,9 +305,9 @@ namespace u128
                 return result;
             }
             result.mLow = X.mLow + rhs.mLow;
-            const ULOW c1 = result.mLow < std::min(X.mLow, rhs.mLow);
+            const ULOW c1 = result.mLow < u128::utils::min(X.mLow, rhs.mLow) ? ULOW{1} : ULOW{0};
             result.mHigh = X.mHigh + rhs.mHigh;
-            const int c2 = result.mHigh < std::min(X.mHigh, rhs.mHigh);
+            const int c2 = result.mHigh < u128::utils::min(X.mHigh, rhs.mHigh);
             ULOW tmp = result.mHigh;
             result.mHigh = tmp + c1;
             const int c3 = result.mHigh < std::min(tmp, c1);
@@ -317,16 +319,16 @@ namespace u128
             return result;
         }
 
-        U128 &operator+=(U128 other)
+        U256 &operator+=(U256 other)
         {
             *this = *this + other;
             return *this;
         }
 
-        U128 operator-(U128 rhs) const
+        U256 operator-(U256 rhs) const
         {
-            U128 result{};
-            U128 X = *this;
+            U256 result{};
+            U256 X = *this;
             if (X.is_singular())
             {
                 return X;
@@ -367,7 +369,7 @@ namespace u128
             const bool hasUnit = X.mHigh > rhs.mHigh;
             if (borrow && hasUnit)
             {
-                result.mHigh -= ULOW(1);
+                result.mHigh.dec();
             }
             if (borrow && !hasUnit)
             {
@@ -377,14 +379,14 @@ namespace u128
             }
             if (!borrow && X.mHigh < rhs.mHigh)
             {
-                result.mHigh = -result.mHigh - ULOW(result.mLow != 0);
+                result.mHigh = -result.mHigh - ULOW(result.mLow.is_zero() ? 0 : 1);
                 result.mLow = -result.mLow;
                 result.mSign = true;
             }
             return result;
         }
 
-        U128 &operator-=(U128 other)
+        U256 &operator-=(U256 other)
         {
             *this = *this - other;
             return *this;
@@ -394,9 +396,9 @@ namespace u128
          * @brief Инкремент числа.
          * @return Число + 1.
          */
-        U128 &inc()
+        U256 &inc()
         {
-            *this = *this + U128{1};
+            *this = *this + U256{1};
             return *this;
         }
 
@@ -404,15 +406,15 @@ namespace u128
          * @brief Декремент числа.
          * @return Число - 1.
          */
-        U128 &dec()
+        U256 &dec()
         {
-            *this = *this - U128{1};
+            *this = *this - U256{1};
             return *this;
         }
 
-        U128 mult64(ULOW x, ULOW y) const
+        U256 mult128(ULOW x, ULOW y) const
         {
-            constexpr ULOW MASK = (ULOW(1) << mHalfWidth) - 1;
+            const ULOW MASK = (ULOW{1} << mHalfWidth) - ULOW{1};
             const ULOW x_low = x & MASK;
             const ULOW y_low = y & MASK;
             const ULOW x_high = x >> mHalfWidth;
@@ -426,7 +428,7 @@ namespace u128
             const ULOW s = t22 >> mHalfWidth;
             const ULOW r = t22 & MASK;
             const ULOW t3 = x_high * y_high;
-            U128 result{t1, 0};
+            U256 result{t1, ULOW{0}};
             const ULOW div = (q + s) + ((p + r + t) >> mHalfWidth);
             const auto p1 = t21 << mHalfWidth;
             const auto p2 = t22 << mHalfWidth;
@@ -438,13 +440,13 @@ namespace u128
             return result;
         }
 
-        U128 operator*(ULOW rhs) const
+        U256 operator*(ULOW rhs) const
         {
-            U128 result = mult64(mLow, rhs);
-            U128 tmp = mult64(mHigh, rhs);
-            const bool is_overflow = tmp.mHigh != 0;
+            U256 result = mult128(mLow, rhs);
+            U256 tmp = mult128(mHigh, rhs);
+            const bool is_overflow = !tmp.mHigh.is_zero();
             tmp.mHigh = tmp.mLow;
-            tmp.mLow = 0;
+            tmp.mLow = ULOW{0};
             result += tmp;
             result.mSign = !result.is_zero() ? this->mSign() : false;
             if (is_overflow)
@@ -452,58 +454,56 @@ namespace u128
             return result;
         }
 
-        U128 operator*(U128 rhs) const
+        U256 operator*(U256 rhs) const
         {
-            const U128 X = *this;
+            const U256 X = *this;
             if (X.is_overflow() || rhs.is_overflow())
             {
-                U128 result;
+                U256 result;
                 result.set_overflow();
                 return result;
             }
             if (X.is_nan() || rhs.is_nan())
             {
-                U128 result;
+                U256 result;
                 result.set_nan();
                 return result;
             }
-            U128 result = X * rhs.mLow;
+            U256 result = X * rhs.mLow;
             if (result.is_singular())
             {
                 return result;
             }
             result.mSign = this->mSign() ^ rhs.mSign();
             const auto tmp = X * rhs.mHigh;
-            result = result + shl64(tmp);
+            result = result + shl128(tmp);
             return result;
         }
 
-        U128 div10() const
+        U256 div10() const
         { // Специальный метод деления на 10 для формирования
             // строкового представления числа.
-            U128 X = *this;
+            U256 X = *this;
             if (X.is_singular())
             {
                 return X;
             }
             const bool sign = X.mSign();
             X.mSign = false;
-            ULOW Q = X.mHigh / ULOW(10);
-            ULOW R = X.mHigh % ULOW(10);
-            ULOW N = R * (mMaxULOW / ULOW(10)) + (X.mLow / ULOW(10));
-            U128 result{};
+            auto [Q, R] = X.mHigh / ULOW(10, 0);
+            ULOW N = R * (mMaxULOW / ULOW(10, 0)).first + (X.mLow / ULOW(10, 0)).first;
+            U256 result{};
             result.mHigh = Q;
             result.mLow = N;
-            const U128 tmp = result * ULOW(10);
-            U128 E = X - tmp;
-            while (E.mHigh != 0 || E.mLow >= ULOW(10))
+            const U256 tmp = result * ULOW(10, 0);
+            U256 E = X - tmp;
+            while (!E.mHigh.is_zero() || E.mLow >= ULOW(10, 0))
             {
-                Q = E.mHigh / ULOW(10);
-                R = E.mHigh % ULOW(10);
-                N = R * (mMaxULOW / ULOW(10)) + (E.mLow / ULOW(10));
-                U128 tmp{N, Q};
+                std::tie(Q, R) = E.mHigh / ULOW(10, 0);
+                N = R * (mMaxULOW / ULOW(10, 0)).first + (E.mLow / ULOW(10, 0)).first;
+                U256 tmp{N, Q};
                 result += tmp;
-                E -= tmp * ULOW(10);
+                E -= tmp * ULOW(10, 0);
             }
             result.mSign = sign;
             return result;
@@ -516,33 +516,31 @@ namespace u128
             {
                 return -1;
             }
-            constexpr int multiplier_mod10 = mMaxULOW % 10 + 1;
-            return ((mLow % 10) + multiplier_mod10 * (mHigh % 10)) % 10;
+            const int multiplier_mod10 = (mMaxULOW / 10).second.mLow + 1;
+            return ((mLow / 10).second.mLow + multiplier_mod10 * (mHigh / 10).second.mLow) % 10;
         }
 
         // Метод итеративного деления широкого числа на узкое.
         // Наиболее вероятное количество итераций: ~N/4, где N - количество битов узкого числа.
         // В данном случае имеем ~64/4 = 16 итераций.
         // Максимум до ~(N+1) итерации.
-        std::pair<U128, U128> operator/(ULOW y) const
+        std::pair<U256, U256> operator/(ULOW y) const
         {
-            assert(y != 0);
-            const U128 X = *this;
+            assert(!y.is_zero());
+            const U256 X = *this;
             if (X.is_singular())
             {
-                return std::make_pair(X, U128{0});
+                return std::make_pair(X, U256{0});
             }
-            ULOW Q = X.mHigh / y;
-            ULOW R = X.mHigh % y;
-            ULOW N = R * (mMaxULOW / y) + (X.mLow / y);
-            U128 result{N, Q, X.mSign};
-            U128 E = X - result * y; // Остаток от деления.
+            auto [Q, R] = X.mHigh / y;
+            ULOW N = R * (mMaxULOW / y).first + (X.mLow / y).first;
+            U256 result{N, Q, X.mSign};
+            U256 E = X - result * y; // Остаток от деления.
             for (;;)
             {
-                Q = E.mHigh / y;
-                R = E.mHigh % y;
-                N = R * (mMaxULOW / y) + (E.mLow / y);
-                U128 tmp{N, Q, E.mSign};
+                std::tie(Q, R) = E.mHigh / y;
+                N = R * (mMaxULOW / y).first + (E.mLow / y).first;
+                U256 tmp{N, Q, E.mSign};
                 if (tmp.is_zero())
                 {
                     break;
@@ -553,15 +551,15 @@ namespace u128
             if (E.is_negative())
             { // И при этом не равно нулю.
                 result.dec();
-                U128 tmp{y, 0};
+                U256 tmp{y, ULOW{0}};
                 E += tmp;
             }
             return std::make_pair(result, E);
         }
 
-        std::pair<U128, U128> operator/=(ULOW y)
+        std::pair<U256, U256> operator/=(ULOW y)
         {
-            U128 remainder;
+            U256 remainder;
             std::tie(*this, remainder) = *this / y;
             return std::make_pair(*this, remainder);
         }
@@ -569,23 +567,23 @@ namespace u128
         // Метод деления двух широких чисел.
         // Отсутствует "раскачка" алгоритма для "плохих" случаев деления: (A*M + B)/(1*M + D).
         // Наиболее вероятное общее количество итераций: 4...6.
-        std::pair<U128, U128> operator/(const U128 other) const
+        std::pair<U256, U256> operator/(const U256 other) const
         {
-            U128 X = *this;
-            U128 Y = other;
+            U256 X = *this;
+            U256 Y = other;
             if (X.is_overflow() || Y.is_overflow())
             {
-                U128 result;
+                U256 result;
                 result.set_overflow();
-                return std::make_pair(result, U128{0});
+                return std::make_pair(result, U256{0});
             }
             if (X.is_nan() || Y.is_nan())
             {
-                U128 result;
+                U256 result;
                 result.set_nan();
-                return std::make_pair(result, U128{0});
+                return std::make_pair(result, U256{0});
             }
-            if (Y.mHigh == 0)
+            if (Y.mHigh.is_zero())
             {
                 X.mSign = X.mSign() ^ Y.mSign();
                 auto result = X / Y.mLow;
@@ -594,40 +592,41 @@ namespace u128
             const bool make_sign_inverse = X.mSign != Y.mSign;
             X.mSign = make_sign_inverse;
             Y.mSign = 0;
-            const ULOW Q = X.mHigh / Y.mHigh;
-            const ULOW R = X.mHigh % Y.mHigh;
+            const auto& [Q, R] = X.mHigh / Y.mHigh;
             const ULOW Delta = mMaxULOW - Y.mLow;
-            const U128 DeltaQ = mult64(Delta, Q);
-            U128 W1 = U128{0, R} - U128{0, Q};
+            const U256 DeltaQ = mult128(Delta, Q);
+            U256 W1 = U256{ULOW{0}, R} - U256{ULOW{0}, Q};
             W1 = W1 + DeltaQ;
-            const ULOW C1 = (Y.mHigh < mMaxULOW) ? Y.mHigh + ULOW(1) : mMaxULOW;
-            const ULOW W2 = mMaxULOW - Delta / C1;
+            const ULOW C1 = (Y.mHigh < mMaxULOW) ? Y.mHigh + ULOW{1} : mMaxULOW;
+            const ULOW W2 = mMaxULOW - (Delta / C1).first;
             auto [Quotient, _] = W1 / W2;
             std::tie(Quotient, std::ignore) = Quotient / C1;
-            U128 result = U128{Q, 0} + Quotient;
+            U256 result = U256{Q, ULOW{0}} + Quotient;
             if (make_sign_inverse)
             {
                 result = -result;
             }
-            U128 N = Y * result.mLow;
+            U256 N = Y * result.mLow;
             if (make_sign_inverse)
             {
                 N = -N;
             }
             assert(!N.is_overflow());
-            U128 Error = X - N;
-            U128 More = Error - Y;
+            U256 Error = X - N;
+            U256 More = Error - Y;
             bool do_inc = More.is_nonegative();
             bool do_dec = Error.is_negative();
             while (do_dec || do_inc)
             {
-                if (do_inc) {
-                    result.inc();
-                    Error -= Y;
-                }
-                if (do_dec) {
+                if (do_dec)
+                {
                     result.dec();
                     Error += Y;
+                }
+                if (do_inc)
+                {
+                    result.inc();
+                    Error -= Y;
                 }
                 More = Error - Y;
                 do_inc = More.is_nonegative();
@@ -652,7 +651,7 @@ namespace u128
                 result = "";
                 return result;
             }
-            U128 X = *this;
+            U256 X = *this;
             while (!X.is_zero())
             {
                 const int d = X.mod10();
@@ -671,24 +670,17 @@ namespace u128
             return result.length() != 0 ? result : "0";
         }
 
-        static constexpr U128 get_max_value()
-        {
-            U128 result{};
-            result.mLow = -1;
-            result.mHigh = -1;
-            return result;
-        }
-    }; // struct U128
+    }; // struct U256
 
-    inline U128 shl64(U128 x)
-    { // x * 2^64
-        U128 result{0, x.mLow, x.mSign};
+    inline U256 shl128(U256 x)
+    { // x * 2^128
+        U256 result{ULOW{0}, x.mLow, x.mSign};
         result.mSingular = x.mSingular;
-        if (x.mHigh != 0 && !x.is_singular())
+        if (!x.mHigh.is_zero() && !x.is_singular())
         {
             result.set_overflow();
         }
         return result;
     }
 
-} // namespace u128
+} // namespace u256
