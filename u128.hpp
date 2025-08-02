@@ -6,9 +6,11 @@
 #include <cassert>   // assert
 #include <string>    // std::string
 
+#include "singular.hpp"
+#include "sign.hpp"
+
 namespace u128
 {
-
     using ULOW = uint64_t; // Тип половинок: старшей и младшей частей составного числа.
 
     static constexpr auto INF = "inf";
@@ -38,54 +40,10 @@ namespace u128
     static constexpr char DIGITS[10]{'0', '1', '2', '3', '4',
                                      '5', '6', '7', '8', '9'};
 
-    struct Singular
-    {
-        int mOverflow = 0;
-        int mNaN = 0;
-        constexpr explicit Singular() = default;
-        constexpr Singular(bool is_overflow, bool is_nan) : mOverflow{is_overflow}, mNaN{is_nan} {};
-        constexpr Singular(const Singular &other) = default;
-        constexpr Singular(Singular &&other) = default;
-        constexpr Singular &operator=(const Singular &other) = default;
-        constexpr Singular &operator=(Singular &&other) = default;
-        bool operator()() const { return mNaN != 0 || mOverflow != 0; }
-        bool operator==(const Singular &other) const
-        {
-            return !(mOverflow || other.mOverflow || mNaN || other.mNaN);
-        }
-        auto operator<=>(const Singular &other) const = default;
-        bool IsOverflow() const { return mOverflow != 0; }
-        bool IsNaN() const { return mNaN != 0; }
-    };
-
-    struct Sign
-    {
-        int mSign = 0;
-        constexpr explicit Sign() = default;
-        constexpr Sign(const Sign &other) = default;
-        constexpr Sign(Sign &&other) = default;
-        constexpr Sign(bool value) : mSign{value} {};
-        constexpr Sign &operator=(const Sign &other) = default;
-        constexpr Sign &operator=(Sign &&other) = default;
-        Sign &operator^(const Sign &other)
-        {
-            this->mSign = operator()() ^ other.operator()();
-            return *this;
-        }
-        bool operator()() const { return mSign != 0; }
-        void operator-()
-        {
-            mSign = 1 - operator()();
-        }
-        bool operator==(const Sign &other) const
-        {
-            return mSign == other.mSign ? true : ((operator()() && other.operator()()) || (!operator()() && !other.operator()()));
-        }
-        auto operator<=>(const Sign &other) = delete;
-    };
-
+    
     struct U128;
     U128 shl64(U128 x);
+    U128 shl64_mod(U128 x);
 
     // High/Low структура 128-битного числа со знаком и флагом переполнения.
     // Для иллюстрации алгоритма деления двух U128 чисел реализованы основные
@@ -106,7 +64,7 @@ namespace u128
         explicit constexpr U128(uint64_t x)
             : mLow{x} {};
 
-        explicit constexpr U128(ULOW low, ULOW high, Sign sign = false)
+        explicit constexpr U128(ULOW low, ULOW high, Sign sign = Sign{})
             : mLow{low}, mHigh{high}, mSign{sign} {};
 
         constexpr U128(const U128 &other) = default;
@@ -229,24 +187,67 @@ namespace u128
             mSingular.mNaN = 1;
         }
 
-        U128 operator<<(const uint32_t shift) const
+        /**
+         * @brief Оператор сдвига влево. Аналогичен умножению на степень 2.
+         * @details Сохраняет знак.
+         */
+        U128 operator<<(uint32_t shift) const
         {
             U128 result = *this;
-            constexpr U128 two {2};
-            for (uint32_t i = 0; i < shift; i++) {
-                result = result * two;
+            int ishift = shift % 128u;
+            if (ishift <= 64) {
+                ULOW L = result.mLow >> (64 - ishift);
+                result.mLow <<= shift;
+                result.mHigh <<= shift;
+                result.mHigh |= L;
+            } else {
+                result.mHigh = result.mLow;
+                result.mLow = 0;
+                ishift -= 64;
+                ULOW L = result.mLow >> (64 - ishift);
+                result.mLow <<= shift;
+                result.mHigh <<= shift;
+                result.mHigh |= L;
             }
             return result;
         }
 
-        U128 operator>>(const uint32_t shift) const
+        U128& operator<<=(const uint32_t shift)
+        {
+            *this = *this << shift;
+            return *this;
+        }
+
+        /**
+         * @brief Оператор сдвига вправо. Аналогичен делению на степень 2.
+         * @details Сохраняет знак.
+         */
+        U128 operator>>(uint32_t shift) const
         {
             U128 result = *this;
-            constexpr U128 two {2};
-            for (uint32_t i = 0; i < shift; i++) {
-                result = (result / two).first;
+            int ishift = shift % 128u;
+            if (ishift <= 64) {
+                ULOW L = result.mLow >> (64 - ishift);
+                ULOW mask = -1ull;
+                mask <<= ishift;
+                mask = ~mask;
+                ULOW H = result.mHigh & mask;
+                result.mLow >>= ishift;
+                result.mHigh >>= ishift;
+                result.mLow |= H << (64 - ishift);
+            } else {
+                result.mHigh = 0;
+                result.mLow = result.mHigh;
+                ishift -= 64;
+                result.mLow >>= ishift;
             }
             return result;
+        }
+
+        U128& operator>>=(const uint32_t shift)
+        {
+            *this = *this >> shift;
+            return *this;
         }
 
         U128 operator&(const U128& mask) const
@@ -263,10 +264,35 @@ namespace u128
             return *this;
         }
 
+        U128 operator|(const U128& mask) const
+        {
+            U128 result = *this;
+            result.mLow |= mask.mLow;
+            result.mHigh |= mask.mHigh;
+            return result;
+        }
+
+        U128& operator|=(const U128& mask)
+        {
+            *this = *this | mask;
+            return *this;
+        }
+
         U128 operator-() const
         {
             U128 result = *this;
             -result.mSign;
+            return result;
+        }
+
+        /**
+         * Оператор инверсии битов. Не влияет на знак.
+         */
+        U128 operator~() const
+        {
+            U128 result = *this;
+            result.mLow = ~result.mLow;
+            result.mHigh = ~result.mHigh;
             return result;
         }
 
@@ -338,7 +364,7 @@ namespace u128
             }
             if (X.is_negative() && !rhs.is_negative())
             {
-                rhs.mSign = 1;
+                rhs.mSign = true;
                 result = rhs + X;
                 return result;
             }
@@ -410,7 +436,7 @@ namespace u128
             return *this;
         }
 
-        U128 mult64(ULOW x, ULOW y) const
+        static U128 mult64(ULOW x, ULOW y)
         {
             constexpr ULOW MASK = (ULOW(1) << mHalfWidth) - 1;
             const ULOW x_low = x & MASK;
@@ -435,6 +461,95 @@ namespace u128
             result.mHigh += div;
             result.mHigh += t3;
             result.mSingular.mOverflow = result.mHigh < t3;
+            return result;
+        }
+
+        /**
+         * @brief Складывает два числа как беззнаковые по модулю 2^128.
+         */
+        static U128 add_mod(U128 x, U128 y)
+        {
+            if (x.is_overflow() || y.is_overflow())
+            {
+                U128 result;
+                result.set_overflow();
+                return result;
+            }
+            if (x.is_nan() || y.is_nan())
+            {
+                U128 result;
+                result.set_nan();
+                return result;
+            }
+            ULOW ac = x.mLow + y.mLow;
+            ULOW bd = x.mHigh + y.mHigh;
+            bd += ac < std::min(x.mLow, y.mLow) ? 1u : 0u;
+            U128 result{ac, bd};
+            return result;
+        }
+
+        /**
+         * @brief Вычитает два числа как беззнаковые по модулю 2^128.
+         */
+        static U128 sub_mod(U128 x, U128 y)
+        {
+            if (x.is_overflow() || y.is_overflow())
+            {
+                U128 result;
+                result.set_overflow();
+                return result;
+            }
+            if (x.is_nan() || y.is_nan())
+            {
+                U128 result;
+                result.set_nan();
+                return result;
+            }
+            if (x >= y) {
+                ULOW ac = x.mLow - y.mLow;
+                ULOW bd = x.mHigh - y.mHigh;
+                bd -= ac > std::max(x.mLow, y.mLow) ? 1u : 0u;
+                U128 result{ac, bd};
+                return result;
+            } else {
+                y = U128::get_max_value() - y;
+                y.inc();
+                return add_mod(x, y);
+            }
+        }
+
+        /**
+         * y = (-x) mod 2^128.
+         */
+        static U128 neg_mod(U128 x)
+        {
+            return sub_mod(U128{0}, x);
+        }
+
+        /**
+         * @brief Вычисляет произведение двух 128-битных чисел как беззнаковых по модулю 2^128.
+         */
+        static U128 mult_mod(U128 x, U128 y)
+        {
+            // x*y = (a + w*b)(c + w*d) = ac + w*(ad + bc) + w*w*bd = (ac + w*(ad + bc)) mod 2^128;
+            if (x.is_overflow() || y.is_overflow())
+            {
+                U128 result;
+                result.set_overflow();
+                return result;
+            }
+            if (x.is_nan() || y.is_nan())
+            {
+                U128 result;
+                result.set_nan();
+                return result;
+            }
+            U128 ac = U128::mult64(x.mLow, y.mLow);
+            U128 ad = U128::mult64(x.mLow, y.mHigh);
+            U128 bc = U128::mult64(x.mHigh, y.mLow);
+            U128 result = add_mod(ad, bc);
+            result = shl64_mod(result);
+            result = add_mod(result, ac);
             return result;
         }
 
@@ -680,6 +795,19 @@ namespace u128
         }
     }; // struct U128
 
+    /**
+     * 
+     */
+    inline U128 shl64_mod(U128 x)
+    { // (x * 2^64) mod 2^128
+        U128 result{x.mHigh >> 1, x.mLow, x.mSign};
+        result.mSingular = x.mSingular;
+        return result;
+    }
+
+    /**
+     * 
+     */
     inline U128 shl64(U128 x)
     { // x * 2^64
         U128 result{0, x.mLow, x.mSign};
@@ -690,5 +818,4 @@ namespace u128
         }
         return result;
     }
-
 } // namespace u128

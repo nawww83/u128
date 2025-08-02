@@ -12,6 +12,11 @@ namespace u128
 {
     namespace utils
     {
+        /**
+         * @brief Вычисляет положительную целочисленную степень x^y.
+         * @param x Основание.
+         * @param y Степень. Если степень отрицательная, то возвращает единицу.
+         */
         inline U128 int_power(ULOW x, int y)
         {
             U128 result{1};
@@ -20,22 +25,6 @@ namespace u128
                 result = result * x;
             }
             return result;
-        }
-
-        U128 min(U128 x, U128 y)
-        {
-            if (x.is_singular()) return x;
-            if (y.is_singular()) return y;
-            if (x < y) return x; 
-            else return y;
-        }
-
-        U128 max(U128 x, U128 y)
-        {
-            if (x.is_singular()) return x;
-            if (y.is_singular()) return y;
-            if (x > y) return x; 
-            else return y;
         }
 
         /**
@@ -55,7 +44,7 @@ namespace u128
         }
 
         /**
-         * НОД.
+         * @brief НОД двух чисел.
          */
         inline U128 gcd(U128 x, U128 y)
         {
