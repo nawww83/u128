@@ -4,6 +4,11 @@
 #include "sign.hpp"
 #include "gutils.hpp"
 
+/**
+ * Число разрядности 4*mHalfWitdh, где mHalfWidth = 64, 128, 256, ...
+ * Базисом ULOW является число U128. На основании его можно сконструировать
+ * 256-битное число как GNumber<U128, 64>, затем на основании 256-битного 512-битное и т.д.
+ */
 template <typename ULOW, unsigned int mHalfWidth>
 struct GNumber
 {
@@ -142,28 +147,29 @@ struct GNumber
     }
 
     /**
-     * @brief Оператор сдвига влево. Аналогичен умножению на степень 2.
-     * @details Сохраняет знак.
+     * @brief Оператор сдвига влево.
+     * @details Сохраняет знак. Поведение аналогично поведению
+     * такого же оператора для встроенных в язык С++ беззнаковых чисел.
      */
     GNumber operator<<(uint32_t shift) const
     {
         GNumber result = *this;
         int ishift = shift % (mHalfWidth * 4);
-        if (ishift <= (mHalfWidth * 2))
+        if (ishift < (mHalfWidth * 2))
         {
             ULOW L = result.mLow >> ((mHalfWidth * 2) - ishift);
-            result.mLow <<= shift;
-            result.mHigh <<= shift;
+            result.mLow <<= ishift;
+            result.mHigh <<= ishift;
             result.mHigh |= L;
         }
         else
         {
             result.mHigh = result.mLow;
-            result.mLow = 0;
+            result.mLow = ULOW{0};
             ishift -= (mHalfWidth * 2);
             ULOW L = result.mLow >> ((mHalfWidth * 2) - ishift);
-            result.mLow <<= shift;
-            result.mHigh <<= shift;
+            result.mLow <<= ishift;
+            result.mHigh <<= ishift;
             result.mHigh |= L;
         }
         return result;
@@ -176,17 +182,18 @@ struct GNumber
     }
 
     /**
-     * @brief Оператор сдвига вправо. Аналогичен делению на степень 2.
-     * @details Сохраняет знак.
+     * @brief Оператор сдвига вправо.
+     * @details Сохраняет знак. Поведение аналогично поведению
+     * такого же оператора для встроенных в язык С++ беззнаковых чисел.
      */
     GNumber operator>>(uint32_t shift) const
     {
         GNumber result = *this;
-        int ishift = shift % (mHalfWidth * 4);
-        if (ishift <= (mHalfWidth * 2))
+        int ishift = shift % (mHalfWidth * 4u);
+        if (ishift < (mHalfWidth * 2))
         {
             ULOW L = result.mLow >> ((mHalfWidth * 2) - ishift);
-            ULOW mask = ULOW::neg_mod(ULOW(1));
+            ULOW mask = ~ULOW{0};
             mask <<= ishift;
             mask = ~mask;
             ULOW H = result.mHigh & mask;
@@ -196,8 +203,8 @@ struct GNumber
         }
         else
         {
-            result.mHigh = 0;
             result.mLow = result.mHigh;
+            result.mHigh = ULOW{0};
             ishift -= (mHalfWidth * 2);
             result.mLow >>= ishift;
         }
@@ -238,6 +245,9 @@ struct GNumber
         return *this;
     }
 
+    /**
+     * Оператор смены знака числа.
+     */
     GNumber operator-() const
     {
         GNumber result = *this;
@@ -248,7 +258,7 @@ struct GNumber
     /**
      * Оператор инверсии битов. Не влияет на знак.
      */
-    GNumber operator~() const
+    constexpr GNumber operator~() const
     {
         GNumber result = *this;
         result.mLow = ~result.mLow;
@@ -396,7 +406,10 @@ struct GNumber
         return *this;
     }
 
-    static GNumber mult128(ULOW x, ULOW y)
+    /**
+     * Умножение двух "половинок" с расширением до полного числа.
+     */
+    static GNumber mult_ext(ULOW x, ULOW y)
     {
         const ULOW MASK = (ULOW{1} << mHalfWidth) - ULOW{1};
         const ULOW x_low = x & MASK;
@@ -426,6 +439,7 @@ struct GNumber
 
     /**
      * @brief Складывает два числа как беззнаковые по базовому модулю.
+     * @details Поведение аналогично сложению встроенных в язык С++ беззнаковых чисел.
      */
     static GNumber add_mod(GNumber x, GNumber y)
     {
@@ -443,13 +457,14 @@ struct GNumber
         }
         ULOW ac = x.mLow + y.mLow;
         ULOW bd = x.mHigh + y.mHigh;
-        bd += ac < std::min(x.mLow, y.mLow) ? 1u : 0u;
+        bd += ac < std::min(x.mLow, y.mLow) ? ULOW{1u} : ULOW{0u};
         GNumber result{ac, bd};
         return result;
     }
 
     /**
      * @brief Вычитает два числа как беззнаковые по базовому модулю.
+     * @details Поведение аналогично вычитанию встроенных в язык С++ беззнаковых чисел.
      */
     static GNumber sub_mod(GNumber x, GNumber y)
     {
@@ -469,20 +484,21 @@ struct GNumber
         {
             ULOW ac = x.mLow - y.mLow;
             ULOW bd = x.mHigh - y.mHigh;
-            bd -= ac > std::max(x.mLow, y.mLow) ? 1u : 0u;
+            bd -= ac > std::max(x.mLow, y.mLow) ? ULOW{1u} : ULOW{0u};
             GNumber result{ac, bd};
             return result;
         }
         else
         {
-            y = ULOW::get_max_value() - y;
+            y = get_max_value() - y;
             y.inc();
             return add_mod(x, y);
         }
     }
 
     /**
-     * y = (-x) mod 2^W.
+     * @brief Смена знака, приводится по базовому модулю.
+     * @details y = (-x) mod 2^W.
      */
     static GNumber neg_mod(GNumber x)
     {
@@ -491,6 +507,7 @@ struct GNumber
 
     /**
      * @brief Вычисляет произведение двух W-битных чисел как беззнаковых по модулю 2^W.
+     * @details Поведение аналогично умножению встроенных в язык С++ беззнаковых чисел.
      */
     static GNumber mult_mod(GNumber x, GNumber y)
     {
@@ -507,9 +524,9 @@ struct GNumber
             result.set_nan();
             return result;
         }
-        GNumber ac = mult128(x.mLow, y.mLow);
-        GNumber ad = mult128(x.mLow, y.mHigh);
-        GNumber bc = mult128(x.mHigh, y.mLow);
+        GNumber ac = mult_ext(x.mLow, y.mLow);
+        GNumber ad = mult_ext(x.mLow, y.mHigh);
+        GNumber bc = mult_ext(x.mHigh, y.mLow);
         GNumber result = add_mod(ad, bc);
         result = shl128_mod(result);
         result = add_mod(result, ac);
@@ -518,8 +535,8 @@ struct GNumber
 
     GNumber operator*(ULOW rhs) const
     {
-        GNumber result = mult128(mLow, rhs);
-        GNumber tmp = mult128(mHigh, rhs);
+        GNumber result = mult_ext(mLow, rhs);
+        GNumber tmp = mult_ext(mHigh, rhs);
         const bool is_overflow = !tmp.mHigh.is_zero();
         tmp.mHigh = tmp.mLow;
         tmp.mLow = ULOW{0};
@@ -551,14 +568,17 @@ struct GNumber
             return result;
         }
         result.mSign = this->mSign() ^ rhs.mSign();
-        const auto tmp = X * rhs.mHigh;
+        const auto &tmp = X * rhs.mHigh;
         result = result + shl128(tmp);
         return result;
     }
 
+    /**
+     * Вспомогательный метод деления на 10 для формирования
+     * строкового представления числа.
+     */
     GNumber div10() const
-    { // Специальный метод деления на 10 для формирования
-        // строкового представления числа.
+    {
         GNumber X = *this;
         if (X.is_singular())
         {
@@ -566,35 +586,38 @@ struct GNumber
         }
         const bool sign = X.mSign();
         X.mSign = false;
-        constexpr ULOW ten = ULOW{10};
-        auto [Q, R] = X.mHigh / ten;
-        ULOW N = R * (mMaxULOW / ten).first + (X.mLow / ten).first;
-        GNumber result{};
-        result.mHigh = Q;
-        result.mLow = N;
-        const GNumber tmp = result * ten;
+        auto Q = ULOW{X.mHigh.div10()};
+        auto R = ULOW{static_cast<unsigned int>(X.mHigh.mod10())};
+        ULOW N = R * mMaxULOW.div10() + X.mLow.div10();
+        assert(!N.is_singular());
+        GNumber result{N, Q};
+        const GNumber &tmp = result * ULOW{10};
         GNumber E = X - tmp;
-        while (!E.mHigh.is_zero() || E.mLow >= ten)
+        while (!E.mHigh.is_zero() || E.mLow >= ULOW{10})
         {
-            std::tie(Q, R) = E.mHigh / ten;
-            N = R * (mMaxULOW / ten).first + (E.mLow / ten).first;
+            Q = ULOW{E.mHigh.div10()};
+            R = ULOW{static_cast<unsigned int>(E.mHigh.mod10())};
+            N = R * mMaxULOW.div10() + E.mLow.div10();
             GNumber tmp{N, Q};
             result += tmp;
-            E -= tmp * ten;
+            E -= tmp * ULOW{10};
         }
         result.mSign = sign;
         return result;
     }
 
+    /**
+     * Вспомогательный метод нахождения остатка от деления на 10 для формирования
+     * строкового представления числа.
+     */
     int mod10() const
-    { // Специальный метод нахождения остатка от деления на 10 для формирования
-        // строкового представления числа.
+    {
         if (this->is_singular())
         {
             return -1;
         }
-        const int multiplier_mod10 = (mMaxULOW / 10u).second.mLow + 1;
-        return ((mLow / 10u).second.mLow + multiplier_mod10 * (mHigh / 10u).second.mLow) % 10;
+        const int multiplier_mod10 = mMaxULOW.mod10() + 1;
+        return (mLow.mod10() + multiplier_mod10 * mHigh.mod10()) % 10;
     }
 
     // Метод итеративного деления широкого числа на узкое.
@@ -604,7 +627,9 @@ struct GNumber
     std::pair<GNumber, GNumber> operator/(ULOW y) const
     {
         assert(!y.is_zero());
-        const GNumber X = *this;
+        const GNumber &X = *this;
+        assert(!X.mLow.is_negative());
+        assert(!X.mHigh.is_negative());
         if (X.is_singular())
         {
             return std::make_pair(X, GNumber{0});
@@ -625,8 +650,8 @@ struct GNumber
             result += tmp;
             E -= tmp * y;
         }
-        if (E.is_negative())
-        { // И при этом не равно нулю.
+        if (E.is_negative()) // И при этом не равно нулю.
+        {
             result.dec();
             GNumber tmp{y, ULOW{0}};
             E += tmp;
@@ -671,7 +696,7 @@ struct GNumber
         Y.mSign = 0;
         const auto &[Q, R] = X.mHigh / Y.mHigh;
         const ULOW Delta = mMaxULOW - Y.mLow;
-        const GNumber DeltaQ = mult128(Delta, Q);
+        const GNumber DeltaQ = mult_ext(Delta, Q);
         GNumber W1 = GNumber{ULOW{0}, R} - GNumber{ULOW{0}, Q};
         W1 = W1 + DeltaQ;
         const ULOW C1 = (Y.mHigh < mMaxULOW) ? Y.mHigh + ULOW{1} : mMaxULOW;
@@ -747,23 +772,16 @@ struct GNumber
         return result.length() != 0 ? result : "0";
     }
 
-    static GNumber get_max_value()
+    static constexpr GNumber get_max_value()
     {
-        GNumber result{};
-        const ULOW MASK = (ULOW{1} << mHalfWidth) - ULOW{1};
-        result.mLow |= MASK;
-        result.mHigh |= MASK;
-        result.mLow <<= mHalfWidth;
-        result.mHigh <<= mHalfWidth;
-        result.mLow |= MASK;
-        result.mHigh |= MASK;
-        return result;
+        GNumber result{ULOW{0}, ULOW{0}};
+        return ~result;
     }
 
     /**
-     * 
+     *
      */
-    inline GNumber shl128_mod(GNumber x)
+    static GNumber shl128_mod(const GNumber &x)
     { // (x * 2^(W/2)) mod 2^W
         GNumber result{x.mHigh >> 1, x.mLow, x.mSign};
         result.mSingular = x.mSingular;
@@ -771,13 +789,13 @@ struct GNumber
     }
 
     /**
-     * 
+     *
      */
-    inline GNumber shl128(GNumber x)
+    static GNumber shl128(const GNumber &x)
     { // x * 2^(W/2)
-        GNumber result{0, x.mLow, x.mSign};
+        GNumber result{ULOW{0}, x.mLow, x.mSign};
         result.mSingular = x.mSingular;
-        if (x.mHigh != 0 && !x.is_singular())
+        if (!x.mHigh.is_zero() && !x.is_singular())
         {
             result.set_overflow();
         }

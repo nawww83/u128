@@ -40,7 +40,6 @@ namespace u128
     static constexpr char DIGITS[10]{'0', '1', '2', '3', '4',
                                      '5', '6', '7', '8', '9'};
 
-    
     struct U128;
     U128 shl64(U128 x);
     U128 shl64_mod(U128 x);
@@ -53,7 +52,7 @@ namespace u128
         // Битовая полуширина половинок.
         static constexpr int mHalfWidth = 64 / 2;
         // Наибольшее значение половинок, M-1.
-        static constexpr ULOW mMaxULOW = ULOW(-1);
+        static constexpr ULOW mMaxULOW = ULOW{-1ull};
         ULOW mLow = 0;
         ULOW mHigh = 0;
         Sign mSign{};
@@ -195,24 +194,27 @@ namespace u128
         {
             U128 result = *this;
             int ishift = shift % 128u;
-            if (ishift <= 64) {
+            if (ishift < 64)
+            {
                 ULOW L = result.mLow >> (64 - ishift);
-                result.mLow <<= shift;
-                result.mHigh <<= shift;
+                result.mLow <<= ishift;
+                result.mHigh <<= ishift;
                 result.mHigh |= L;
-            } else {
+            }
+            else
+            {
                 result.mHigh = result.mLow;
                 result.mLow = 0;
                 ishift -= 64;
                 ULOW L = result.mLow >> (64 - ishift);
-                result.mLow <<= shift;
-                result.mHigh <<= shift;
+                result.mLow <<= ishift;
+                result.mHigh <<= ishift;
                 result.mHigh |= L;
             }
             return result;
         }
 
-        U128& operator<<=(const uint32_t shift)
+        U128 &operator<<=(const uint32_t shift)
         {
             *this = *this << shift;
             return *this;
@@ -226,31 +228,34 @@ namespace u128
         {
             U128 result = *this;
             int ishift = shift % 128u;
-            if (ishift <= 64) {
+            if (ishift < 64)
+            {
                 ULOW L = result.mLow >> (64 - ishift);
-                ULOW mask = -1ull;
+                ULOW mask{-1ull};
                 mask <<= ishift;
                 mask = ~mask;
                 ULOW H = result.mHigh & mask;
                 result.mLow >>= ishift;
                 result.mHigh >>= ishift;
                 result.mLow |= H << (64 - ishift);
-            } else {
-                result.mHigh = 0;
+            }
+            else
+            {
                 result.mLow = result.mHigh;
+                result.mHigh = 0;
                 ishift -= 64;
                 result.mLow >>= ishift;
             }
             return result;
         }
 
-        U128& operator>>=(const uint32_t shift)
+        U128 &operator>>=(const uint32_t shift)
         {
             *this = *this >> shift;
             return *this;
         }
 
-        U128 operator&(const U128& mask) const
+        U128 operator&(const U128 &mask) const
         {
             U128 result = *this;
             result.mLow &= mask.mLow;
@@ -258,13 +263,13 @@ namespace u128
             return result;
         }
 
-        U128& operator&=(const U128& mask)
+        U128 &operator&=(const U128 &mask)
         {
             *this = *this & mask;
             return *this;
         }
 
-        U128 operator|(const U128& mask) const
+        U128 operator|(const U128 &mask) const
         {
             U128 result = *this;
             result.mLow |= mask.mLow;
@@ -272,7 +277,7 @@ namespace u128
             return result;
         }
 
-        U128& operator|=(const U128& mask)
+        U128 &operator|=(const U128 &mask)
         {
             *this = *this | mask;
             return *this;
@@ -288,7 +293,7 @@ namespace u128
         /**
          * Оператор инверсии битов. Не влияет на знак.
          */
-        U128 operator~() const
+        constexpr U128 operator~() const
         {
             U128 result = *this;
             result.mLow = ~result.mLow;
@@ -505,13 +510,16 @@ namespace u128
                 result.set_nan();
                 return result;
             }
-            if (x >= y) {
+            if (x >= y)
+            {
                 ULOW ac = x.mLow - y.mLow;
                 ULOW bd = x.mHigh - y.mHigh;
                 bd -= ac > std::max(x.mLow, y.mLow) ? 1u : 0u;
                 U128 result{ac, bd};
                 return result;
-            } else {
+            }
+            else
+            {
                 y = U128::get_max_value() - y;
                 y.inc();
                 return add_mod(x, y);
@@ -736,11 +744,13 @@ namespace u128
             bool do_dec = Error.is_negative();
             while (do_dec || do_inc)
             {
-                if (do_inc) {
+                if (do_inc)
+                {
                     result.inc();
                     Error -= Y;
                 }
-                if (do_dec) {
+                if (do_dec)
+                {
                     result.dec();
                     Error += Y;
                 }
@@ -796,7 +806,7 @@ namespace u128
     }; // struct U128
 
     /**
-     * 
+     *
      */
     inline U128 shl64_mod(U128 x)
     { // (x * 2^64) mod 2^128
@@ -806,7 +816,7 @@ namespace u128
     }
 
     /**
-     * 
+     *
      */
     inline U128 shl64(U128 x)
     { // x * 2^64
