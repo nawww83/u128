@@ -157,7 +157,7 @@ struct GNumber
         int ishift = shift % (mHalfWidth * 4);
         if (ishift < (mHalfWidth * 2))
         {
-            ULOW L = result.mLow >> ((mHalfWidth * 2) - ishift);
+            const ULOW L = result.mLow >> ((mHalfWidth * 2) - ishift);
             result.mLow <<= ishift;
             result.mHigh <<= ishift;
             result.mHigh |= L;
@@ -167,7 +167,7 @@ struct GNumber
             result.mHigh = result.mLow;
             result.mLow = ULOW{0};
             ishift -= (mHalfWidth * 2);
-            ULOW L = result.mLow >> ((mHalfWidth * 2) - ishift);
+            const ULOW L = result.mLow >> ((mHalfWidth * 2) - ishift);
             result.mLow <<= ishift;
             result.mHigh <<= ishift;
             result.mHigh |= L;
@@ -192,11 +192,11 @@ struct GNumber
         int ishift = shift % (mHalfWidth * 4u);
         if (ishift < (mHalfWidth * 2))
         {
-            ULOW L = result.mLow >> ((mHalfWidth * 2) - ishift);
+            const ULOW L = result.mLow >> ((mHalfWidth * 2) - ishift);
             ULOW mask = ~ULOW{0};
             mask <<= ishift;
             mask = ~mask;
-            ULOW H = result.mHigh & mask;
+            const ULOW H = result.mHigh & mask;
             result.mLow >>= ishift;
             result.mHigh >>= ishift;
             result.mLow |= H << ((mHalfWidth * 2) - ishift);
@@ -302,7 +302,7 @@ struct GNumber
         const ULOW c1 = result.mLow < gutils::min(X.mLow, rhs.mLow) ? ULOW{1} : ULOW{0};
         result.mHigh = ULOW::add_mod(X.mHigh, rhs.mHigh);
         const int c2 = result.mHigh < gutils::min(X.mHigh, rhs.mHigh);
-        ULOW tmp = result.mHigh;
+        const ULOW tmp = result.mHigh;
         result.mHigh = ULOW::add_mod(tmp, c1);
         const int c3 = result.mHigh < gutils::min(tmp, c1);
         result.mSingular.mOverflow = c2 || c3;
@@ -455,7 +455,7 @@ struct GNumber
             result.set_nan();
             return result;
         }
-        ULOW ac = x.mLow + y.mLow;
+        const ULOW ac = x.mLow + y.mLow;
         ULOW bd = x.mHigh + y.mHigh;
         bd += ac < std::min(x.mLow, y.mLow) ? ULOW{1u} : ULOW{0u};
         GNumber result{ac, bd};
@@ -482,7 +482,7 @@ struct GNumber
         }
         if (x >= y)
         {
-            ULOW ac = x.mLow - y.mLow;
+            const ULOW ac = x.mLow - y.mLow;
             ULOW bd = x.mHigh - y.mHigh;
             bd -= ac > std::max(x.mLow, y.mLow) ? ULOW{1u} : ULOW{0u};
             GNumber result{ac, bd};
@@ -524,11 +524,11 @@ struct GNumber
             result.set_nan();
             return result;
         }
-        GNumber ac = mult_ext(x.mLow, y.mLow);
-        GNumber ad = mult_ext(x.mLow, y.mHigh);
-        GNumber bc = mult_ext(x.mHigh, y.mLow);
+        const GNumber ac = mult_ext(x.mLow, y.mLow);
+        const GNumber ad = mult_ext(x.mLow, y.mHigh);
+        const GNumber bc = mult_ext(x.mHigh, y.mLow);
         GNumber result = add_mod(ad, bc);
-        result = shl128_mod(result);
+        result = shl_half_width_mod(result);
         result = add_mod(result, ac);
         return result;
     }
@@ -568,8 +568,7 @@ struct GNumber
             return result;
         }
         result.mSign = this->mSign() ^ rhs.mSign();
-        const auto &tmp = X * rhs.mHigh;
-        result = result + shl128(tmp);
+        result = result + shl_half_width( X * rhs.mHigh );
         return result;
     }
 
@@ -589,10 +588,8 @@ struct GNumber
         auto Q = ULOW{X.mHigh.div10()};
         auto R = ULOW{static_cast<unsigned int>(X.mHigh.mod10())};
         ULOW N = R * mMaxULOW.div10() + X.mLow.div10();
-        assert(!N.is_singular());
         GNumber result{N, Q};
-        const GNumber &tmp = result * ULOW{10};
-        GNumber E = X - tmp;
+        GNumber E = X - (result * ULOW{10});
         while (!E.mHigh.is_zero() || E.mLow >= ULOW{10})
         {
             Q = ULOW{E.mHigh.div10()};
@@ -613,9 +610,7 @@ struct GNumber
     int mod10() const
     {
         if (this->is_singular())
-        {
             return -1;
-        }
         const int multiplier_mod10 = mMaxULOW.mod10() + 1;
         return (mLow.mod10() + multiplier_mod10 * mHigh.mod10()) % 10;
     }
@@ -627,9 +622,7 @@ struct GNumber
     std::pair<GNumber, GNumber> operator/(ULOW y) const
     {
         assert(!y.is_zero());
-        const GNumber &X = *this;
-        assert(!X.mLow.is_negative());
-        assert(!X.mHigh.is_negative());
+        const GNumber X = *this;
         if (X.is_singular())
         {
             return std::make_pair(X, GNumber{0});
@@ -694,7 +687,7 @@ struct GNumber
         const bool make_sign_inverse = X.mSign != Y.mSign;
         X.mSign = make_sign_inverse;
         Y.mSign = 0;
-        const auto &[Q, R] = X.mHigh / Y.mHigh;
+        const auto [Q, R] = X.mHigh / Y.mHigh;
         const ULOW Delta = mMaxULOW - Y.mLow;
         const GNumber DeltaQ = mult_ext(Delta, Q);
         GNumber W1 = GNumber{ULOW{0}, R} - GNumber{ULOW{0}, Q};
@@ -779,19 +772,21 @@ struct GNumber
     }
 
     /**
-     *
+     * Сдвиг влево на полширины беззнаковой части по базовому модулю.
+     * Сохраняет знак.
      */
-    static GNumber shl128_mod(const GNumber &x)
-    { // (x * 2^(W/2)) mod 2^W
+    static GNumber shl_half_width_mod(const GNumber &x)
+    { // sgn(x) * ((|x| * 2^(W/2)) mod 2^W)
         GNumber result{x.mHigh >> 1, x.mLow, x.mSign};
         result.mSingular = x.mSingular;
         return result;
     }
 
     /**
-     *
+     * Сдвиг влево на полширины беззнаковой части.
+     * Сохраняет знак. С переполнением.
      */
-    static GNumber shl128(const GNumber &x)
+    static GNumber shl_half_width(const GNumber &x)
     { // x * 2^(W/2)
         GNumber result{ULOW{0}, x.mLow, x.mSign};
         result.mSingular = x.mSingular;

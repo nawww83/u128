@@ -35,10 +35,22 @@ int main(int argc, char *argv[])
     {
         using U256 = GNumber<U128, 64>;
         using U512 = GNumber<U256, 128>;
-        U256 x{12ull};
+        U512 x{12ull};
         const auto &x_str = x.value();
         std::cout << x_str << std::endl;
         assert(x_str == "12");
+    }
+    {
+        using U256 = GNumber<U128, 64>;
+        using U512 = GNumber<U256, 128>;
+        U512 x{U256{12}, U256{34}};
+        U512 y{U256{156}, U256{3}};
+        const auto& [Q, R] = x / y;
+        const auto &q_str = Q.value();
+        const auto &r_str = R.value();
+        std::cout << "q: " << q_str << ", r: " << r_str << std::endl;
+        assert(q_str == "11");
+        assert(r_str == "115792089237316195423570985008687907853269984665640564039457584007913129638232");
     }
 
     quadratic_residue_tests();

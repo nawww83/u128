@@ -40,10 +40,6 @@ namespace u128
     static constexpr char DIGITS[10]{'0', '1', '2', '3', '4',
                                      '5', '6', '7', '8', '9'};
 
-    struct U128;
-    U128 shl64(U128 x);
-    U128 shl64_mod(U128 x);
-
     // High/Low структура 128-битного числа со знаком и флагом переполнения.
     // Для иллюстрации алгоритма деления двух U128 чисел реализованы основные
     // арифметические операторы, кроме умножения двух U128 чисел.
@@ -196,7 +192,7 @@ namespace u128
             int ishift = shift % 128u;
             if (ishift < 64)
             {
-                ULOW L = result.mLow >> (64 - ishift);
+                const ULOW L = result.mLow >> (64 - ishift);
                 result.mLow <<= ishift;
                 result.mHigh <<= ishift;
                 result.mHigh |= L;
@@ -206,7 +202,7 @@ namespace u128
                 result.mHigh = result.mLow;
                 result.mLow = 0;
                 ishift -= 64;
-                ULOW L = result.mLow >> (64 - ishift);
+                const ULOW L = result.mLow >> (64 - ishift);
                 result.mLow <<= ishift;
                 result.mHigh <<= ishift;
                 result.mHigh |= L;
@@ -230,11 +226,11 @@ namespace u128
             int ishift = shift % 128u;
             if (ishift < 64)
             {
-                ULOW L = result.mLow >> (64 - ishift);
+                const ULOW L = result.mLow >> (64 - ishift);
                 ULOW mask{-1ull};
                 mask <<= ishift;
                 mask = ~mask;
-                ULOW H = result.mHigh & mask;
+                const ULOW H = result.mHigh & mask;
                 result.mLow >>= ishift;
                 result.mHigh >>= ishift;
                 result.mLow |= H << (64 - ishift);
@@ -337,7 +333,7 @@ namespace u128
             const ULOW c1 = result.mLow < std::min(X.mLow, rhs.mLow);
             result.mHigh = X.mHigh + rhs.mHigh;
             const int c2 = result.mHigh < std::min(X.mHigh, rhs.mHigh);
-            ULOW tmp = result.mHigh;
+            const ULOW tmp = result.mHigh;
             result.mHigh = tmp + c1;
             const int c3 = result.mHigh < std::min(tmp, c1);
             result.mSingular.mOverflow = c2 || c3;
@@ -443,7 +439,7 @@ namespace u128
 
         static U128 mult64(ULOW x, ULOW y)
         {
-            constexpr ULOW MASK = (ULOW(1) << mHalfWidth) - 1;
+            constexpr ULOW MASK = (ULOW(1) << mHalfWidth) - 1u;
             const ULOW x_low = x & MASK;
             const ULOW y_low = y & MASK;
             const ULOW x_high = x >> mHalfWidth;
@@ -457,7 +453,7 @@ namespace u128
             const ULOW s = t22 >> mHalfWidth;
             const ULOW r = t22 & MASK;
             const ULOW t3 = x_high * y_high;
-            U128 result{t1, 0};
+            U128 result{t1};
             const ULOW div = (q + s) + ((p + r + t) >> mHalfWidth);
             const auto p1 = t21 << mHalfWidth;
             const auto p2 = t22 << mHalfWidth;
@@ -486,7 +482,7 @@ namespace u128
                 result.set_nan();
                 return result;
             }
-            ULOW ac = x.mLow + y.mLow;
+            const ULOW ac = x.mLow + y.mLow;
             ULOW bd = x.mHigh + y.mHigh;
             bd += ac < std::min(x.mLow, y.mLow) ? 1u : 0u;
             U128 result{ac, bd};
@@ -512,7 +508,7 @@ namespace u128
             }
             if (x >= y)
             {
-                ULOW ac = x.mLow - y.mLow;
+                const ULOW ac = x.mLow - y.mLow;
                 ULOW bd = x.mHigh - y.mHigh;
                 bd -= ac > std::max(x.mLow, y.mLow) ? 1u : 0u;
                 U128 result{ac, bd};
@@ -552,9 +548,9 @@ namespace u128
                 result.set_nan();
                 return result;
             }
-            U128 ac = U128::mult64(x.mLow, y.mLow);
-            U128 ad = U128::mult64(x.mLow, y.mHigh);
-            U128 bc = U128::mult64(x.mHigh, y.mLow);
+            const U128 ac = U128::mult64(x.mLow, y.mLow);
+            const U128 ad = U128::mult64(x.mLow, y.mHigh);
+            const U128 bc = U128::mult64(x.mHigh, y.mLow);
             U128 result = add_mod(ad, bc);
             result = shl64_mod(result);
             result = add_mod(result, ac);
@@ -673,8 +669,8 @@ namespace u128
                 result += tmp;
                 E -= tmp * y;
             }
-            if (E.is_negative())
-            { // И при этом не равно нулю.
+            if (E.is_negative()) // И при этом не равно нулю.
+            {
                 result.dec();
                 U128 tmp{y, 0};
                 E += tmp;
@@ -803,29 +799,31 @@ namespace u128
             result.mHigh = -1;
             return result;
         }
-    }; // struct U128
 
-    /**
-     *
-     */
-    inline U128 shl64_mod(U128 x)
-    { // (x * 2^64) mod 2^128
-        U128 result{x.mHigh >> 1, x.mLow, x.mSign};
-        result.mSingular = x.mSingular;
-        return result;
-    }
-
-    /**
-     *
-     */
-    inline U128 shl64(U128 x)
-    { // x * 2^64
-        U128 result{0, x.mLow, x.mSign};
-        result.mSingular = x.mSingular;
-        if (x.mHigh != 0 && !x.is_singular())
-        {
-            result.set_overflow();
+        /**
+         * Сдвиг влево на 64 бита беззнаковой части по модулю 2^128.
+         * Сохраняет знак.
+         */
+        static U128 shl64_mod(U128 x)
+        { // sgn(x) * ( (|x| * 2^64) mod 2^128 )
+            U128 result{x.mHigh >> 1, x.mLow, x.mSign};
+            result.mSingular = x.mSingular;
+            return result;
         }
-        return result;
-    }
+
+        /**
+         * Сдвиг влеово на 64 бита беззнаковой части. 
+         * Сохраняет знак. С переполнением.
+         */
+        static U128 shl64(U128 x)
+        { // x * 2^64
+            U128 result{0, x.mLow, x.mSign};
+            result.mSingular = x.mSingular;
+            if (x.mHigh != 0 && !x.is_singular())
+            {
+                result.set_overflow();
+            }
+            return result;
+        }
+    }; // struct U128
 } // namespace u128
