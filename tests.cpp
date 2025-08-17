@@ -754,33 +754,33 @@ void qs_factorization_tests()
     {
         U128 x {15347ull, 0};
         const auto& result = factor_qs(x, 200, 8);
-        std::cout << "QS factorization 1: {";
-        int idx = 0;
-        for (const auto& [prime, power] : result) {
-            std::cout << prime.value() << "^" << power << (idx < (result.size() - 1) ? ", " : "");
-            idx++;
-        }
-        std::cout << "}." << std::endl;
+        // std::cout << "QS factorization 1: {";
+        // int idx = 0;
+        // for (const auto& [prime, power] : result) {
+            // std::cout << prime.value() << "^" << power << (idx < (result.size() - 1) ? ", " : "");
+            // idx++;
+        // }
+        // std::cout << "}." << std::endl;
         bool is_ok = result == std::map<U128, int>{{U128{103, 0}, 1}, {U128{149, 0}, 1}};
         assert(is_ok);
     }
     const unsigned int sieve_size = 50'000u;
     for (int factor_base = 8;; factor_base++)
     {
-        std::cout << "Factor base: " << factor_base << ", sieve size: " << sieve_size << std::endl;
+        // std::cout << "Factor base: " << factor_base << ", sieve size: " << sieve_size << std::endl;
         const U128 x{8'928'986'827ull, 0};
         // const U128 x {140'789'674'669'022'167ull, 0};
         const auto &result = factor_qs(x, sieve_size, factor_base);
-        std::cout << "QS factorization 2: {";
+        // std::cout << "QS factorization 2: {";
         int idx = 0;
         bool factorized = false;
         for (const auto &[prime, power] : result)
         {
-            std::cout << prime.value() << "^" << power << (idx < (result.size() - 1) ? ", " : "");
+            // std::cout << prime.value() << "^" << power << (idx < (result.size() - 1) ? ", " : "");
             idx++;
             factorized |= (idx > 1) || (power > 1);
         }
-        std::cout << "}." << std::endl;
+        // std::cout << "}." << std::endl;
         if (factorized)
             break;
         // bool is_ok = result == std::map<U128, int>{{U128{74311ull, 0}, 1}, {U128{120157ull, 0}, 1}};

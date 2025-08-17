@@ -498,6 +498,7 @@ namespace u128
                     // std::cout << idx << ", ";
                     // }
                     // std::cout << "}." << std::endl;
+                    // TODO: expand A, B, C, GCD(.) to U256 or U512 etc. to reduce memory consumption.
                     U128 A{1};
                     std::map<U128, int> B_factors;
                     for (auto it = indices.begin(); it != indices.end(); it++)

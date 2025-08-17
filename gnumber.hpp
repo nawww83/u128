@@ -481,8 +481,8 @@ struct GNumber
         }
         if (x >= y)
         {
-            const ULOW ac = x.mLow - y.mLow;
-            ULOW bd = x.mHigh - y.mHigh;
+            const ULOW ac = ULOW::sub_mod(x.mLow, y.mLow);
+            ULOW bd = ULOW::sub_mod(x.mHigh, y.mHigh);
             bd -= x.mLow < y.mLow ? ULOW{1u} : ULOW{0u};
             GNumber result{ac, bd};
             return result;
