@@ -663,7 +663,6 @@ void quadratic_residue_tests()
         bool is_ok = is_quadratiq_residue(x, p);
         assert(is_ok);
     }
-    //
     {
         const U128 p{3ull, 0ull};
         bool is_ok = is_quadratiq_residue(x, p);

@@ -573,19 +573,20 @@ struct GNumber
             return X;
         const bool sign = X.mSign();
         X.mSign = false;
-        auto Q = ULOW{X.mHigh.div10()};
-        auto R = ULOW{static_cast<unsigned int>(X.mHigh.mod10())};
-        ULOW N = R * mMaxULOW.div10() + X.mLow.div10();
+        ULOW Q {X.mHigh.div10()};
+        ULOW R {static_cast<unsigned int>(X.mHigh.mod10())};
+        ULOW N { R * mMaxULOW.div10() + X.mLow.div10() };
+        static constexpr ULOW TEN = ULOW{10};
         GNumber result{N, Q};
-        GNumber E = X - (result * ULOW{10});
-        while (!E.mHigh.is_zero() || E.mLow >= ULOW{10})
+        GNumber E { X - (result * TEN) };
+        while (!E.mHigh.is_zero() || E.mLow >= TEN)
         {
             Q = ULOW{E.mHigh.div10()};
             R = ULOW{static_cast<unsigned int>(E.mHigh.mod10())};
             N = R * mMaxULOW.div10() + E.mLow.div10();
-            GNumber tmp{N, Q};
+            const GNumber tmp{N, Q};
             result += tmp;
-            E -= tmp * ULOW{10};
+            E -= tmp * TEN;
         }
         result.mSign = sign;
         return result;
@@ -625,9 +626,9 @@ struct GNumber
             return std::make_pair(GNumber{ULOW{1}, ULOW{0}, sign}, GNumber{0});
         }
         auto [Q, R] = X.mHigh / y;
-        ULOW N = R * (mMaxULOW / y).first + (X.mLow / y).first;
+        ULOW N { R * (mMaxULOW / y).first + (X.mLow / y).first };
         GNumber result{N, Q, X.mSign};
-        GNumber E = X - result * y; // Остаток от деления.
+        GNumber E { X - result * y }; // Остаток от деления.
         for (;;)
         {
             std::tie(Q, R) = E.mHigh / y;
@@ -687,8 +688,7 @@ struct GNumber
         if (Y.mHigh.is_zero())
         {
             X.mSign = X.mSign() ^ Y.mSign();
-            auto result = X / Y.mLow;
-            return result;
+            return X / Y.mLow;
         }
         assert(X.mLow.is_nonegative());
         assert(Y.mLow.is_nonegative());
@@ -700,21 +700,21 @@ struct GNumber
         const auto &[Q, R] = X.mHigh / Y.mHigh;
         const ULOW &Delta = mMaxULOW - Y.mLow;
         const GNumber &DeltaQ = mult_ext(Delta, Q);
-        GNumber W1 = GNumber{ULOW{0}, R} - GNumber{ULOW{0}, Q};
-        W1 = W1 + DeltaQ;
-        const ULOW &C1 = (Y.mHigh < mMaxULOW) ? Y.mHigh + ULOW{1} : mMaxULOW; // инкремент с насыщением.
+        GNumber W1 { GNumber{ULOW{0}, R} - GNumber{ULOW{0}, Q} };
+        W1 += DeltaQ;
+        const ULOW &C1 = Y.mHigh < mMaxULOW ? Y.mHigh + ULOW{1} : mMaxULOW; // инкремент с насыщением.
         const ULOW &W2 = mMaxULOW - (Delta / C1).first;
         auto [Quotient, _] = W1 / W2;
         std::tie(Quotient, std::ignore) = Quotient / C1;
-        GNumber result = GNumber{Q, ULOW{0}} + Quotient;
-        if (make_sign_inverse)
-            result = -result;
-        GNumber N = Y * result.mLow;
-        if (make_sign_inverse)
-            N = -N;
+        GNumber result {GNumber{Q, ULOW{0}} + Quotient};
+        GNumber N {Y * result.mLow};
         assert(!N.is_overflow());
-        GNumber Error = X - N;
-        GNumber More = Error - Y;
+        if (make_sign_inverse) {
+            result = -result;
+            N = -N;
+        }
+        GNumber Error {X - N};
+        GNumber More {Error - Y};
         bool do_inc = More.is_nonegative();
         bool do_dec = Error.is_negative();
         while (do_dec || do_inc)
