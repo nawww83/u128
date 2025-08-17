@@ -13,7 +13,7 @@ using U512 = GNumber<U256, 128>;
 
 static auto const seed = std::random_device{}();
 
-static auto const internal_step = 1ll << 20;
+static auto const internal_step = 1ll << 15;
 
 /***
  * Генератор случайных чисел.
