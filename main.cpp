@@ -57,6 +57,16 @@ int main(int argc, char *argv[])
     }
     {
         using U256 = GNumber<U128, 64>;
+        U256 x1{U128{16385, 18446744073709551610ull}, U128{18446744073709551613ull, 18446744073709551614ull}};
+        U256 x2{U128{18446744073709551613ull, 18446744073709551614ull}, U128{18446744073709551613ull, 0}};
+        auto [q, r] = x1 / x2;
+        const auto &q_str = q.value();
+        const auto &r_str = r.value();
+        assert(q_str == "18446744073709551617");
+        assert(r_str == "340282366920938463426481119284349124612");
+    }
+    {
+        using U256 = GNumber<U128, 64>;
         U256 x1{U128{1, 0}, U128{0, 0}};
         U256 x2{U128{0, 0}, U128{0, 0}};
         auto sub = U256::sub_mod(x1, x2);

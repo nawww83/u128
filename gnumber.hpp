@@ -279,10 +279,9 @@ struct GNumber
         if (X.is_singular())
             return X;
         if (rhs.is_singular())
-        {
-            X.mSingular = rhs.mSingular;
+            return rhs;
+        if (rhs.is_zero())
             return X;
-        }
         if (X.is_negative() && !rhs.is_negative())
         {
             X.mSign = false;
@@ -321,10 +320,7 @@ struct GNumber
         if (X.is_singular())
             return X;
         if (rhs.is_singular())
-        {
-            X.mSingular = rhs.mSingular;
-            return X;
-        }
+            return rhs;
         if (X.is_negative() && !rhs.is_negative())
         {
             rhs.mSign = true;
@@ -520,6 +516,15 @@ struct GNumber
 
     GNumber operator*(const ULOW &rhs) const
     {
+        if (this->is_singular())
+            return *this;
+        if (rhs.is_singular()) {
+            GNumber result = *this;
+            result.mSingular = rhs.mSingular;
+            return result;
+        }
+        if (rhs.is_zero())
+            return GNumber{0};
         GNumber result = mult_ext(mLow, rhs);
         GNumber tmp = mult_ext(mHigh, rhs);
         const bool is_overflow = !tmp.mHigh.is_zero();
@@ -547,6 +552,8 @@ struct GNumber
             result.set_nan();
             return result;
         }
+        if (rhs.is_zero())
+            return GNumber{0};
         GNumber result = X * rhs.mLow;
         if (result.is_singular())
             return result;
@@ -607,24 +614,15 @@ struct GNumber
         if (X.is_singular())
             return std::make_pair(X, GNumber{0});
         if (X.is_zero())
-        {
             return std::make_pair(GNumber{0}, GNumber{0});
-        }
         if (y == ULOW{1})
-        {
             return std::make_pair(X, GNumber{0});
-        }
         if (y == -ULOW{1})
-        {
             return std::make_pair(-X, GNumber{0});
-        }
         if (X.mHigh.is_zero() && X.mLow == y)
         {
-            return std::make_pair(GNumber{1}, GNumber{0});
-        }
-        if (X.mHigh.is_zero() && X.mLow == -y)
-        {
-            return std::make_pair(-GNumber{1}, GNumber{0});
+            Sign sign = X.mSign() ^ y.mSign();
+            return std::make_pair(GNumber{ULOW{1}, ULOW{0}, sign}, GNumber{0});
         }
         auto [Q, R] = X.mHigh / y;
         ULOW N = R * (mMaxULOW / y).first + (X.mLow / y).first;
@@ -677,25 +675,15 @@ struct GNumber
             return std::make_pair(result, GNumber{0});
         }
         if (X.is_zero())
-        {
             return std::make_pair(GNumber{0}, GNumber{0});
-        }
         if (X == Y)
-        {
             return std::make_pair(GNumber{1}, GNumber{0});
-        }
         if (X == -Y)
-        {
             return std::make_pair(-GNumber{1}, GNumber{0});
-        }
         if (Y == GNumber{1})
-        {
             return std::make_pair(X, GNumber{0});
-        }
         if (Y == -GNumber{1})
-        {
             return std::make_pair(-X, GNumber{0});
-        }
         if (Y.mHigh.is_zero())
         {
             X.mSign = X.mSign() ^ Y.mSign();
@@ -708,13 +696,13 @@ struct GNumber
         assert(Y.mHigh.is_nonegative());
         const bool make_sign_inverse = X.mSign != Y.mSign;
         X.mSign = make_sign_inverse;
-        Y.mSign = 0;
+        Y.mSign = false;
         const auto &[Q, R] = X.mHigh / Y.mHigh;
         const ULOW &Delta = mMaxULOW - Y.mLow;
         const GNumber &DeltaQ = mult_ext(Delta, Q);
         GNumber W1 = GNumber{ULOW{0}, R} - GNumber{ULOW{0}, Q};
         W1 = W1 + DeltaQ;
-        const ULOW &C1 = (Y.mHigh < mMaxULOW) ? Y.mHigh + ULOW{1} : mMaxULOW;
+        const ULOW &C1 = (Y.mHigh < mMaxULOW) ? Y.mHigh + ULOW{1} : mMaxULOW; // инкремент с насыщением.
         const ULOW &W2 = mMaxULOW - (Delta / C1).first;
         auto [Quotient, _] = W1 / W2;
         std::tie(Quotient, std::ignore) = Quotient / C1;

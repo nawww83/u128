@@ -490,11 +490,8 @@ void ferma_tests()
         }
         return is_ok && (x == tmp);
     };
+    auto show_factors = [](const std::map<U128, int> &factors)
     {
-        const U128 x = U128{1129, 0} * U128{7823, 0} * U128{8, 0} * U128{81, 0} * U128{3, 0};
-        std::cout << "x = " << x.value() << ", factors: {";
-        std::cout << std::flush;
-        auto factors = factor(x);
         for (int c = 0; const auto &[p, i] : factors)
         {
             if (c > 0)
@@ -505,244 +502,125 @@ void ferma_tests()
             c++;
         }
         std::cout << "}\n";
+    };
+    {
+        const U128 x = U128{1129, 0} * U128{7823, 0} * U128{8, 0} * U128{81, 0} * U128{3, 0};
+        // std::cout << "x = " << x.value() << ", factors: {";
+        // std::cout << std::flush;
+        auto factors = factor(x);
+        // show_factors(factors);
         assert(check_factors(factors, x));
     }
     {
         const U128 x = U128{625, 0};
-        std::cout << "x = " << x.value() << ", factors: {";
-        std::cout << std::flush;
+        // std::cout << "x = " << x.value() << ", factors: {";
+        // std::cout << std::flush;
         auto factors = factor(x);
-        for (int c = 0; const auto &[p, i] : factors)
-        {
-            if (c > 0)
-            {
-                std::cout << ", ";
-            }
-            std::cout << "(" << p.value() << ", " << i << ")";
-            c++;
-        }
-        std::cout << "}\n";
+        // show_factors(factors);
         assert(check_factors(factors, x));
     }
     {
         const U128 x = U128{625, 0} * U128{81, 0};
-        std::cout << "x = " << x.value() << ", factors: {";
-        std::cout << std::flush;
+        // std::cout << "x = " << x.value() << ", factors: {";
+        // std::cout << std::flush;
         auto factors = factor(x);
-        for (int c = 0; const auto &[p, i] : factors)
-        {
-            if (c > 0)
-            {
-                std::cout << ", ";
-            }
-            std::cout << "(" << p.value() << ", " << i << ")";
-            c++;
-        }
-        std::cout << "}\n";
+        //    show_factors(factors);
         assert(check_factors(factors, x));
     }
     {
         const U128 x = U128{81, 0};
-        std::cout << "x = " << x.value() << ", factors: {";
-        std::cout << std::flush;
+        // std::cout << "x = " << x.value() << ", factors: {";
+        // std::cout << std::flush;
         auto factors = factor(x);
-        for (int c = 0; const auto &[p, i] : factors)
-        {
-            if (c > 0)
-            {
-                std::cout << ", ";
-            }
-            std::cout << "(" << p.value() << ", " << i << ")";
-            c++;
-        }
-        std::cout << "}\n";
+        // show_factors(factors);
         assert(check_factors(factors, x));
     }
     {
         const U128 x = U128{113, 0};
-        std::cout << "x = " << x.value() << ", factors: {";
-        std::cout << std::flush;
+        // std::cout << "x = " << x.value() << ", factors: {";
+        // std::cout << std::flush;
         auto factors = factor(x);
-        for (int c = 0; const auto &[p, i] : factors)
-        {
-            if (c > 0)
-            {
-                std::cout << ", ";
-            }
-            std::cout << "(" << p.value() << ", " << i << ")";
-            c++;
-        }
-        std::cout << "}\n";
+        // show_factors(factors);
         assert(check_factors(factors, x));
     }
     {
         const U128 x = U128{1, 0};
-        std::cout << "x = " << x.value() << ", factors: {";
-        std::cout << std::flush;
+        // std::cout << "x = " << x.value() << ", factors: {";
+        // std::cout << std::flush;
         auto factors = factor(x);
-        for (int c = 0; const auto &[p, i] : factors)
-        {
-            if (c > 0)
-            {
-                std::cout << ", ";
-            }
-            std::cout << "(" << p.value() << ", " << i << ")";
-            c++;
-        }
-        std::cout << "}\n";
+        // show_factors(factors);
         assert(check_factors(factors, x));
     }
     {
         const U128 x = U128{2, 0};
-        std::cout << "x = " << x.value() << ", factors: {";
-        std::cout << std::flush;
+        // std::cout << "x = " << x.value() << ", factors: {";
+        // std::cout << std::flush;
         auto factors = factor(x);
-        for (int c = 0; const auto &[p, i] : factors)
-        {
-            if (c > 0)
-            {
-                std::cout << ", ";
-            }
-            std::cout << "(" << p.value() << ", " << i << ")";
-            c++;
-        }
-        std::cout << "}\n";
+        // show_factors(factors);
         assert(check_factors(factors, x));
     }
     {
         const U128 x = U128{0, 0};
-        std::cout << "x = " << x.value() << ", factors: {";
-        std::cout << std::flush;
+        // std::cout << "x = " << x.value() << ", factors: {";
+        // std::cout << std::flush;
         auto factors = factor(x);
-        for (int c = 0; const auto &[p, i] : factors)
-        {
-            if (c > 0)
-            {
-                std::cout << ", ";
-            }
-            std::cout << "(" << p.value() << ", " << i << ")";
-            c++;
-        }
-        std::cout << "}\n";
+        // show_factors(factors);
         assert(check_factors(factors, x));
     }
     {
         const U128 x = U128{3, 0};
-        std::cout << "x = " << x.value() << ", factors: {";
-        std::cout << std::flush;
+        // std::cout << "x = " << x.value() << ", factors: {";
+        // std::cout << std::flush;
         auto factors = factor(x);
-        for (int c = 0; const auto &[p, i] : factors)
-        {
-            if (c > 0)
-            {
-                std::cout << ", ";
-            }
-            std::cout << "(" << p.value() << ", " << i << ")";
-            c++;
-        }
-        std::cout << "}\n";
+        // show_factors(factors);
         assert(check_factors(factors, x));
     }
     {
         const U128 x = U128{199933, 0} * U128{999331, 0} * U128{113, 0};
-        std::cout << "x = " << x.value() << ", factors: {";
-        std::cout << std::flush;
+        // std::cout << "x = " << x.value() << ", factors: {";
+        // std::cout << std::flush;
         auto factors = factor(x);
-        for (int c = 0; const auto &[p, i] : factors)
-        {
-            if (c > 0)
-            {
-                std::cout << ", ";
-            }
-            std::cout << "(" << p.value() << ", " << i << ")";
-            c++;
-        }
-        std::cout << "}\n";
+        //    show_factors(factors);
         assert(check_factors(factors, x));
     }
     {
         const U128 x = U128{199933, 0} * U128{999331, 0} * U128{9311, 0};
-        std::cout << "x = " << x.value() << ", factors: {";
-        std::cout << std::flush;
+        // std::cout << "x = " << x.value() << ", factors: {";
+        // std::cout << std::flush;
         auto factors = factor(x);
-        for (int c = 0; const auto &[p, i] : factors)
-        {
-            if (c > 0)
-            {
-                std::cout << ", ";
-            }
-            std::cout << "(" << p.value() << ", " << i << ")";
-            c++;
-        }
-        std::cout << "}\n";
+        //    show_factors(factors);
         assert(check_factors(factors, x));
     }
     {
         const U128 x{8'928'986'827ull, 0};
-        std::cout << "x = " << x.value() << ", factors: {";
-        std::cout << std::flush;
+        // std::cout << "x = " << x.value() << ", factors: {";
+        // std::cout << std::flush;
         auto factors = factor(x);
-        for (int c = 0; const auto &[p, i] : factors)
-        {
-            if (c > 0)
-            {
-                std::cout << ", ";
-            }
-            std::cout << "(" << p.value() << ", " << i << ")";
-            c++;
-        }
-        std::cout << "}\n";
+        //    show_factors(factors);
         assert(check_factors(factors, x));
     }
     {
         const U128 x = U128{2345678917ull, 0};
-        std::cout << "x = " << x.value() << ", factors: {";
-        std::cout << std::flush;
+        // std::cout << "x = " << x.value() << ", factors: {";
+        // std::cout << std::flush;
         auto factors = factor(x);
-        for (int c = 0; const auto &[p, i] : factors)
-        {
-            if (c > 0)
-            {
-                std::cout << ", ";
-            }
-            std::cout << "(" << p.value() << ", " << i << ")";
-            c++;
-        }
-        std::cout << "}\n";
+        // show_factors(factors);
         assert(check_factors(factors, x));
     }
     {
         const U128 x = U128{-1ull, -1ull}; // 340 282 366 920 938 463 463 374 607 431 768 211 455
-        std::cout << "x = " << x.value() << ", factors: {";
-        std::cout << std::flush;
+        // std::cout << "x = " << x.value() << ", factors: {";
+        // std::cout << std::flush;
         auto factors = factor(x);
-        for (int c = 0; const auto &[p, i] : factors)
-        {
-            if (c > 0)
-            {
-                std::cout << ", ";
-            }
-            std::cout << "(" << p.value() << ", " << i << ")";
-            c++;
-        }
-        std::cout << "}\n";
+        // show_factors(factors);
         assert(check_factors(factors, x));
     }
     {                                                             // Медленно: ~40 sec.
         const U128 x = U128{2'153'233'344'269'007'091ull, 30ull}; // 555 555 555 555 555 555 571
-        std::cout << "x = " << x.value() << ", factors: {";
-        std::cout << std::flush;
+        // std::cout << "x = " << x.value() << ", factors: {";
+        // std::cout << std::flush;
         auto factors = factor(x);
-        for (int c = 0; const auto &[p, i] : factors)
-        {
-            if (c > 0)
-            {
-                std::cout << ", ";
-            }
-            std::cout << "(" << p.value() << ", " << i << ")";
-            c++;
-        }
-        std::cout << "}\n";
+        // show_factors(factors);
         assert(check_factors(factors, x));
     }
     // { // Оч. медленно: ~9 min 12 s.
@@ -751,14 +629,7 @@ void ferma_tests()
     //     std::cout << "x = " << x.value() << ", factors: {";
     //     std::cout << std::flush;
     //     auto factors = u128::factor(x);
-    //     for (int c = 0; const auto& [p, i] : factors) {
-    //         if (c > 0) {
-    //             std::cout << ", ";
-    //         }
-    //         std::cout << "(" << p.value() << ", " << i << ")";
-    //         c++;
-    //     }
-    //     std::cout << "}\n";
+    //     show_factors(factors);
     //     assert(check_factors(factors, x));
     // }
 }
