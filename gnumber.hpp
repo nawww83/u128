@@ -274,12 +274,10 @@ struct GNumber
 
     GNumber operator+(GNumber rhs) const
     {
-        GNumber result{};
+        GNumber result;
         GNumber X = *this;
         if (X.is_singular())
-        {
             return X;
-        }
         if (rhs.is_singular())
         {
             X.mSingular = rhs.mSingular;
@@ -306,13 +304,11 @@ struct GNumber
         const int c3 = result.mHigh < gutils::min(tmp, c1);
         result.mSingular.mOverflow = c2 || c3;
         if (X.mSign() && rhs.mSign())
-        {
             result.mSign = true;
-        }
         return result;
     }
 
-    GNumber &operator+=(GNumber other)
+    GNumber &operator+=(const GNumber &other)
     {
         *this = *this + other;
         return *this;
@@ -320,12 +316,10 @@ struct GNumber
 
     GNumber operator-(GNumber rhs) const
     {
-        GNumber result{};
+        GNumber result;
         GNumber X = *this;
         if (X.is_singular())
-        {
             return X;
-        }
         if (rhs.is_singular())
         {
             X.mSingular = rhs.mSingular;
@@ -351,35 +345,28 @@ struct GNumber
             return result;
         }
         if (X.is_zero())
-        {
-            result = rhs;
-            -result.mSign;
-            return result;
-        }
+            return -rhs;
         result.mLow = ULOW::sub_mod(X.mLow, rhs.mLow);
         result.mHigh = ULOW::sub_mod(X.mHigh, rhs.mHigh);
         const bool borrow = X.mLow < rhs.mLow;
         const bool hasUnit = X.mHigh > rhs.mHigh;
         if (borrow && hasUnit)
-        {
-            result.mHigh.dec();
-        }
+            result.mHigh = ULOW::sub_mod(result.mHigh, ULOW{1});
         if (borrow && !hasUnit)
         {
             result = rhs - X;
-            -result.mSign;
-            return result;
+            return -result;
         }
         if (!borrow && X.mHigh < rhs.mHigh)
         {
-            result.mHigh = ULOW::neg_mod(ULOW::add_mod(result.mHigh, ULOW{result.mLow.is_zero() ? 0ull : 1ull}));
+            result.mHigh = ULOW::sub_mod(ULOW::neg_mod(result.mHigh), ULOW{result.mLow.is_zero() ? 0ull : 1ull});
             result.mLow = ULOW::neg_mod(result.mLow);
             result.mSign = true;
         }
         return result;
     }
 
-    GNumber &operator-=(GNumber other)
+    GNumber &operator-=(const GNumber &other)
     {
         *this = *this - other;
         return *this;
@@ -454,9 +441,9 @@ struct GNumber
             result.set_nan();
             return result;
         }
-        const ULOW &ac = x.mLow + y.mLow;
-        ULOW bd = x.mHigh + y.mHigh;
-        bd += ac < std::min(x.mLow, y.mLow) ? ULOW{1u} : ULOW{0u};
+        const ULOW &ac = ULOW::add_mod(x.mLow, y.mLow);
+        ULOW bd = ULOW::add_mod(x.mHigh, y.mHigh);
+        bd = ac < std::min(x.mLow, y.mLow) ? ULOW::add_mod(bd, ULOW{1u}) : bd;
         GNumber result{ac, bd};
         return result;
     }
@@ -483,15 +470,14 @@ struct GNumber
         {
             const ULOW &ac = ULOW::sub_mod(x.mLow, y.mLow);
             ULOW bd = ULOW::sub_mod(x.mHigh, y.mHigh);
-            bd -= x.mLow < y.mLow ? ULOW{1u} : ULOW{0u};
+            bd = x.mLow < y.mLow ? ULOW::sub_mod(bd, ULOW{1u}) : bd;
             GNumber result{ac, bd};
             return result;
         }
         else
         {
-            GNumber tmp = get_max_value() - y;
-            tmp.inc();
-            return add_mod(x, tmp);
+            const GNumber &tmp = get_max_value() - y;
+            return add_mod(x, add_mod(tmp, GNumber{1}));
         }
     }
 
@@ -532,7 +518,7 @@ struct GNumber
         return result;
     }
 
-    GNumber operator*(ULOW rhs) const
+    GNumber operator*(const ULOW &rhs) const
     {
         GNumber result = mult_ext(mLow, rhs);
         GNumber tmp = mult_ext(mHigh, rhs);
@@ -546,7 +532,7 @@ struct GNumber
         return result;
     }
 
-    GNumber operator*(GNumber rhs) const
+    GNumber operator*(const GNumber &rhs) const
     {
         const GNumber X = *this;
         if (X.is_overflow() || rhs.is_overflow())
@@ -563,9 +549,7 @@ struct GNumber
         }
         GNumber result = X * rhs.mLow;
         if (result.is_singular())
-        {
             return result;
-        }
         result.mSign = this->mSign() ^ rhs.mSign();
         result = result + shl_half_width(X * rhs.mHigh);
         return result;
@@ -579,9 +563,7 @@ struct GNumber
     {
         GNumber X = *this;
         if (X.is_singular())
-        {
             return X;
-        }
         const bool sign = X.mSign();
         X.mSign = false;
         auto Q = ULOW{X.mHigh.div10()};
@@ -618,13 +600,31 @@ struct GNumber
     // Наиболее вероятное количество итераций: ~N/4, где N - количество битов узкого числа.
     // В данном случае имеем ~64/4 = 16 итераций.
     // Максимум до ~(N+1) итерации.
-    std::pair<GNumber, GNumber> operator/(ULOW y) const
+    std::pair<GNumber, GNumber> operator/(const ULOW &y) const
     {
         assert(!y.is_zero());
         const GNumber X = *this;
         if (X.is_singular())
+            return std::make_pair(X, GNumber{0});
+        if (X.is_zero())
+        {
+            return std::make_pair(GNumber{0}, GNumber{0});
+        }
+        if (y == ULOW{1})
         {
             return std::make_pair(X, GNumber{0});
+        }
+        if (y == -ULOW{1})
+        {
+            return std::make_pair(-X, GNumber{0});
+        }
+        if (X.mHigh.is_zero() && X.mLow == y)
+        {
+            return std::make_pair(GNumber{1}, GNumber{0});
+        }
+        if (X.mHigh.is_zero() && X.mLow == -y)
+        {
+            return std::make_pair(-GNumber{1}, GNumber{0});
         }
         auto [Q, R] = X.mHigh / y;
         ULOW N = R * (mMaxULOW / y).first + (X.mLow / y).first;
@@ -636,9 +636,7 @@ struct GNumber
             N = R * (mMaxULOW / y).first + (E.mLow / y).first;
             GNumber tmp{N, Q, E.mSign};
             if (tmp.is_zero())
-            {
                 break;
-            }
             result += tmp;
             E -= tmp * y;
         }
@@ -651,7 +649,7 @@ struct GNumber
         return std::make_pair(result, E);
     }
 
-    std::pair<GNumber, GNumber> operator/=(ULOW y)
+    std::pair<GNumber, GNumber> operator/=(const ULOW &y)
     {
         GNumber remainder;
         std::tie(*this, remainder) = *this / y;
@@ -661,7 +659,7 @@ struct GNumber
     // Метод деления двух широких чисел.
     // Отсутствует "раскачка" алгоритма для "плохих" случаев деления: (A*M + B)/(1*M + D).
     // Наиболее вероятное общее количество итераций: 4...6.
-    std::pair<GNumber, GNumber> operator/(const GNumber other) const
+    std::pair<GNumber, GNumber> operator/(const GNumber &other) const
     {
         assert(!other.is_zero());
         GNumber X = *this;
@@ -678,16 +676,40 @@ struct GNumber
             result.set_nan();
             return std::make_pair(result, GNumber{0});
         }
+        if (X.is_zero())
+        {
+            return std::make_pair(GNumber{0}, GNumber{0});
+        }
+        if (X == Y)
+        {
+            return std::make_pair(GNumber{1}, GNumber{0});
+        }
+        if (X == -Y)
+        {
+            return std::make_pair(-GNumber{1}, GNumber{0});
+        }
+        if (Y == GNumber{1})
+        {
+            return std::make_pair(X, GNumber{0});
+        }
+        if (Y == -GNumber{1})
+        {
+            return std::make_pair(-X, GNumber{0});
+        }
         if (Y.mHigh.is_zero())
         {
             X.mSign = X.mSign() ^ Y.mSign();
             auto result = X / Y.mLow;
             return result;
         }
+        assert(X.mLow.is_nonegative());
+        assert(Y.mLow.is_nonegative());
+        assert(X.mHigh.is_nonegative());
+        assert(Y.mHigh.is_nonegative());
         const bool make_sign_inverse = X.mSign != Y.mSign;
         X.mSign = make_sign_inverse;
         Y.mSign = 0;
-        const auto [Q, R] = X.mHigh / Y.mHigh;
+        const auto &[Q, R] = X.mHigh / Y.mHigh;
         const ULOW &Delta = mMaxULOW - Y.mLow;
         const GNumber &DeltaQ = mult_ext(Delta, Q);
         GNumber W1 = GNumber{ULOW{0}, R} - GNumber{ULOW{0}, Q};
@@ -731,7 +753,7 @@ struct GNumber
      */
     std::string value() const
     {
-        std::string result{};
+        std::string result;
         if (this->is_overflow())
         {
             result = INF;
@@ -747,16 +769,12 @@ struct GNumber
         {
             const int d = X.mod10();
             if (d < 0)
-            {
                 return result;
-            }
             result.push_back(DIGITS[d]);
             X = X.div10();
         }
         if (this->is_negative() && !this->is_zero())
-        {
             result.push_back('-');
-        }
         std::reverse(result.begin(), result.end());
         return result.length() != 0 ? result : "0";
     }
@@ -787,9 +805,7 @@ struct GNumber
         GNumber result{ULOW{0}, x.mLow, x.mSign};
         result.mSingular = x.mSingular;
         if (!x.mHigh.is_zero() && !x.is_singular())
-        {
             result.set_overflow();
-        }
         return result;
     }
 };

@@ -399,7 +399,7 @@ void test_division_u512_semi_randomly(long long N)
                                    -1ull, -2ull, -3ull, -4ull, -5ull, -6ull, -7ull};
     auto make_test = [&caller](const Quadrupole &q1, const Quadrupole &q2, const Quadrupole &q3, const Quadrupole &q4, const Signess &s) -> bool
     {
-        return test_div<U512>(construct_two_512bit_numbers(q1, q2, q2, q3, s),
+        return test_div<U512>(construct_two_512bit_numbers(q1, q2, q3, q4, s),
                               caller);
     };
     auto get_quadrupole = [&choice]() -> Quadrupole
@@ -444,7 +444,7 @@ void test_division_u512_randomly(long long N)
     PythonCaller<U512> caller;
     auto make_test = [&caller](const Quadrupole &q1, const Quadrupole &q2, const Quadrupole &q3, const Quadrupole &q4, const Signess &s) -> bool
     {
-        return test_div<U512>(construct_two_512bit_numbers(q1, q2, q2, q3, s),
+        return test_div<U512>(construct_two_512bit_numbers(q1, q2, q3, q4, s),
                               caller);
     };
     auto get_quadrupole = []() -> Quadrupole
