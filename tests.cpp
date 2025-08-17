@@ -4,6 +4,8 @@
 #include "tests.hpp"
 #include "solver.hpp"
 
+#include "gnumber.hpp"
+
 #include "u128_utils.h"
 
 static auto const seed = std::random_device{}();
@@ -31,7 +33,8 @@ auto roll_bool = [urbg = std::mt19937{seed},
     return distr(urbg) % 2;
 };
 
-PythonCaller::PythonCaller()
+template <typename T>
+PythonCaller<T>::PythonCaller()
 {
     Py_Initialize();
     mMain = PyImport_AddModule("__main__");
@@ -39,12 +42,14 @@ PythonCaller::PythonCaller()
     mLocalDictionary = PyDict_New();
 }
 
-PythonCaller::~PythonCaller()
+template <typename T>
+PythonCaller<T>::~PythonCaller()
 {
     Py_Finalize();
 }
 
-PyObject *PythonCaller::Divide(U128 X, U128 Y) const
+template <typename T>
+PyObject *PythonCaller<T>::Divide(T X, T Y) const
 {
     const char *pythonScript = "quotient = nominator // denominator\n";
     PyDict_SetItemString(mLocalDictionary, "nominator", PyLong_FromString(X.value().c_str(), nullptr, 10));
@@ -53,7 +58,8 @@ PyObject *PythonCaller::Divide(U128 X, U128 Y) const
     return PyDict_GetItemString(mLocalDictionary, "quotient");
 }
 
-PyObject *PythonCaller::ISqrt(U128 X) const
+template <typename T>
+PyObject *PythonCaller<T>::ISqrt(T X) const
 {
     const char *pythonScript = "import math;y = math.isqrt(x)\n";
     PyDict_SetItemString(mLocalDictionary, "x", PyLong_FromString(X.value().c_str(), nullptr, 10));
@@ -61,7 +67,8 @@ PyObject *PythonCaller::ISqrt(U128 X) const
     return PyDict_GetItemString(mLocalDictionary, "y");
 }
 
-bool PythonCaller::Compare(PyObject *result, const char *reference) const
+template <typename T>
+bool PythonCaller<T>::Compare(PyObject *result, const char *reference) const
 {
     PyObject *repr = PyObject_Repr(result);
     PyObject *str = PyUnicode_AsEncodedString(repr, "utf-8", "~E~");
@@ -77,14 +84,15 @@ bool PythonCaller::Compare(PyObject *result, const char *reference) const
     return is_ok;
 }
 
-bool test_div(U128 z1, U128 z2, PythonCaller &caller)
+template <typename T>
+bool test_div(T z1, T z2, PythonCaller<T> &caller)
 {
     const auto [z3, _] = z1 / z2;
     PyObject *quotient = caller.Divide(z1, z2);
     return caller.Compare(quotient, z3.value().c_str());
 }
 
-bool test_isqrt(U128 z, PythonCaller &caller)
+bool test_isqrt(U128 z, PythonCaller<U128> &caller)
 {
     bool exact;
     const U128 zi = u128::utils::isqrt(z, exact);
@@ -100,7 +108,7 @@ void test_isqrt_semi_randomly(long long N)
         std::cout << "Skipped!\n";
         return;
     }
-    PythonCaller caller;
+    PythonCaller<U128> caller;
     const std::vector<ULOW> choice{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
                                    65535, 65534, 65533, 65532, 65531, 65530,
                                    16384, 16383, 16382, 16385, 16386, 16387, 16388,
@@ -146,7 +154,7 @@ void test_isqrt_randomly(long long N)
         std::cout << "Skipped!\n";
         return;
     }
-    PythonCaller caller;
+    PythonCaller<U128> caller;
     auto make_test = [&caller](const Dipole q) -> bool
     {
         return test_isqrt(U128{q.B, q.A},
@@ -179,21 +187,21 @@ void test_isqrt_randomly(long long N)
     }
 }
 
-void test_division_semi_randomly(long long N)
+void test_division_u128_semi_randomly(long long N)
 {
     if (N < 1)
     {
         std::cout << "Skipped!\n";
         return;
     }
-    PythonCaller caller;
+    PythonCaller<U128> caller;
     const std::vector<ULOW> choice{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
                                    65535, 65534, 65533, 65532, 65531, 65530,
                                    16384, 16383, 16382, 16385, 16386, 16387, 16388,
                                    -1ull, -2ull, -3ull, -4ull, -5ull, -6ull, -7ull};
     auto make_test = [&caller](const Quadrupole q, const Signess s) -> bool
     {
-        return test_div(U128{q.B, q.A, Sign{s.s1}},
+        return test_div<U128>(U128{q.B, q.A, Sign{s.s1}},
                         U128{q.D, q.C, Sign{s.s2}},
                         caller);
     };
@@ -228,17 +236,17 @@ void test_division_semi_randomly(long long N)
     }
 }
 
-void test_division_randomly(long long N)
+void test_division_u128_randomly(long long N)
 {
     if (N < 1)
     {
         std::cout << "Skipped!\n";
         return;
     }
-    PythonCaller caller;
+    PythonCaller<U128> caller;
     auto make_test = [&caller](const Quadrupole q, const Signess s) -> bool
     {
-        return test_div(U128{q.B, q.A, Sign{s.s1}},
+        return test_div<U128>(U128{q.B, q.A, Sign{s.s1}},
                         U128{q.D, q.C, Sign{s.s2}},
                         caller);
     };
@@ -260,6 +268,100 @@ void test_division_randomly(long long N)
             continue;
         }
         is_ok &= make_test(q, s);
+        assert(is_ok);
+        if (counter % internal_step == 0)
+        {
+            external_iterations++;
+            std::cout << "... iterations: " << counter << ". External: " << external_iterations << " from " << N << '\n';
+        }
+    }
+}
+
+void test_division_u256_semi_randomly(long long N)
+{
+    using U256 = GNumber<U128, 64>;
+    if (N < 1)
+    {
+        std::cout << "Skipped!\n";
+        return;
+    }
+    PythonCaller<U256> caller;
+    const std::vector<ULOW> choice{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
+                                   65535, 65534, 65533, 65532, 65531, 65530,
+                                   16384, 16383, 16382, 16385, 16386, 16387, 16388,
+                                   -1ull, -2ull, -3ull, -4ull, -5ull, -6ull, -7ull};
+    auto make_test = [&caller](const Quadrupole q1, const Quadrupole q2, const Signess s) -> bool
+    {
+        return test_div<U256>(U256{U128{q1.B, q1.A}, U128{q2.B, q2.A}, Sign{s.s1}},
+                        U256{U128{q1.D, q1.C}, U128{q2.D, q2.C}, Sign{s.s2}},
+                        caller);
+    };
+    auto get_quadrupole = [&choice]() -> Quadrupole
+    {
+        auto idx1 = roll_uint() % choice.size();
+        auto idx2 = roll_uint() % choice.size();
+        auto idx3 = roll_uint() % choice.size();
+        auto idx4 = roll_uint() % choice.size();
+        Quadrupole q{choice[idx1], choice[idx2], choice[idx3], choice[idx4]};
+        return q;
+    };
+    long long counter = 0;
+    long long external_iterations = 0;
+    bool is_ok = true;
+    while (external_iterations < N)
+    {
+        ++counter;
+        const Quadrupole q1 = get_quadrupole();
+        const Quadrupole q2 = get_quadrupole();
+        const Signess s{roll_bool(), roll_bool()};
+        if (q1.C == 0 && q1.D == 0 && q2.C == 0 && q2.D == 0)
+        {
+            continue;
+        }
+        is_ok &= make_test(q1, q2, s);
+        assert(is_ok);
+        if (counter % internal_step == 0)
+        {
+            external_iterations++;
+            std::cout << "... iterations: " << counter << ". External: " << external_iterations << " from " << N << '\n';
+        }
+    }
+}
+
+void test_division_u256_randomly(long long N)
+{
+    using U256 = GNumber<U128, 64>;
+    if (N < 1)
+    {
+        std::cout << "Skipped!\n";
+        return;
+    }
+    PythonCaller<U256> caller;
+    auto make_test = [&caller](const Quadrupole q1, const Quadrupole q2, const Signess s) -> bool
+    {
+        return test_div<U256>(U256{U128{q1.B, q1.A}, U128{q2.B, q2.A}, Sign{s.s1}},
+                        U256{U128{q1.D, q1.C}, U128{q2.D, q2.C}, Sign{s.s2}},
+                        caller);
+    };
+    auto get_quadrupole = []() -> Quadrupole
+    {
+        Quadrupole q{roll_ulow(), roll_ulow(), roll_ulow(), roll_ulow()};
+        return q;
+    };
+    long long counter = 0;
+    long long external_iterations = 0;
+    bool is_ok = true;
+    while (external_iterations < N)
+    {
+        ++counter;
+        const Quadrupole q1 = get_quadrupole();
+        const Quadrupole q2 = get_quadrupole();
+        const Signess s{roll_bool(), roll_bool()};
+        if (q1.C == 0 && q1.D == 0 && q2.C == 0 && q2.D == 0)
+        {
+            continue;
+        }
+        is_ok &= make_test(q1, q2, s);
         assert(is_ok);
         if (counter % internal_step == 0)
         {

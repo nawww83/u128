@@ -192,7 +192,6 @@ struct GNumber
         int ishift = shift % (mHalfWidth * 4u);
         if (ishift < (mHalfWidth * 2))
         {
-            const ULOW L = result.mLow >> ((mHalfWidth * 2) - ishift);
             ULOW mask = ~ULOW{0};
             mask <<= ishift;
             mask = ~mask;
@@ -484,7 +483,7 @@ struct GNumber
         {
             const ULOW ac = x.mLow - y.mLow;
             ULOW bd = x.mHigh - y.mHigh;
-            bd -= ac > std::max(x.mLow, y.mLow) ? ULOW{1u} : ULOW{0u};
+            bd -= x.mLow < y.mLow ? ULOW{1u} : ULOW{0u};
             GNumber result{ac, bd};
             return result;
         }

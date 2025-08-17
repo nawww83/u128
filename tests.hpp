@@ -8,6 +8,7 @@ using namespace u128;
 /**
  * Класс для вызова методов Python и передачи результата в пространство С++.
  */
+template <typename T>
 class PythonCaller {
 public:
     PythonCaller();
@@ -20,14 +21,14 @@ public:
      * @param Y Делитель.
      * @return Частное от деления, объект Python.
     */
-    PyObject* Divide(U128 X, U128 Y) const;
+    PyObject* Divide(T X, T Y) const;
 
     /**
      * Извлекает целочисленный корень квадратный 128-битного числа.
      * @param X Число.
      * @return Корень квадратный, объект Python.
     */
-   PyObject* ISqrt(U128 X) const;
+   PyObject* ISqrt(T X) const;
 
     /**
      * Сравнивает два частных от деления.
@@ -43,19 +44,20 @@ private:
 };
 
 /**
- * Тест деления двух конкретных 128-битных чисел: сравнивается с реализацией Python.
+ * Тест деления двух чисел: сравнивается с реализацией Python.
  * @param z1 Делимое.
  * @param z2 Делитель.
  * @return Успех/неудача.
 */
-bool test_div(U128 z1, U128 z2, PythonCaller& caller);
+template <typename T>
+bool test_div(T z1, T z2, PythonCaller<T>& caller);
 
 /**
  * Тест извлечения корня квадратного 128-битных чисел: сравнивается с реализацией Python.
  * @param z Число.
  * @return Успех/неудача.
 */
-bool test_isqrt(U128 z, PythonCaller &caller);
+bool test_isqrt(U128 z, PythonCaller<U128> &caller);
 
 /**
  * Полуслучайный тест извлечения корня квадратного 128-битных чисел, используя ограниченный набор 
@@ -75,14 +77,27 @@ void test_isqrt_randomly(long long N);
  * значений вблизи угловых и граничных.
  * @param N Количество внешних итераций.
 */
-void test_division_semi_randomly(long long N);
+void test_division_u128_semi_randomly(long long N);
 
 
 /**
  * Случайный тест деления 128-битных чисел.
  * @param N Количество внешних итераций.
 */
-void test_division_randomly(long long N);
+void test_division_u128_randomly(long long N);
+
+/**
+ * Полуслучайный тест деления 256-битных чисел, используя ограниченный набор 
+ * значений вблизи угловых и граничных.
+ * @param N Количество внешних итераций.
+*/
+void test_division_u256_semi_randomly(long long N);
+
+/**
+ * Случайный тест деления 256-битных чисел.
+ * @param N Количество внешних итераций.
+*/
+void test_division_u256_randomly(long long N);
 
 /**
  * Тест факторизации метода Ферма.

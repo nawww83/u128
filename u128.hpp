@@ -226,7 +226,6 @@ namespace u128
             int ishift = shift % 128u;
             if (ishift < 64)
             {
-                const ULOW L = result.mLow >> (64 - ishift);
                 ULOW mask{-1ull};
                 mask <<= ishift;
                 mask = ~mask;
@@ -510,7 +509,7 @@ namespace u128
             {
                 const ULOW ac = x.mLow - y.mLow;
                 ULOW bd = x.mHigh - y.mHigh;
-                bd -= ac > std::max(x.mLow, y.mLow) ? 1u : 0u;
+                bd -= x.mLow < y.mLow ? 1u : 0u;
                 U128 result{ac, bd};
                 return result;
             }
