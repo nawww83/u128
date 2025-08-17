@@ -408,7 +408,7 @@ struct GNumber
     /**
      * Умножение двух "половинок" с расширением до полного числа.
      */
-    static GNumber mult_ext(ULOW x, ULOW y)
+    static GNumber mult_ext(const ULOW &x, const ULOW &y)
     {
         const ULOW MASK = (ULOW{1} << mHalfWidth) - ULOW{1};
         const ULOW x_low = x & MASK;
@@ -440,7 +440,7 @@ struct GNumber
      * @brief Складывает два числа как беззнаковые по базовому модулю.
      * @details Поведение аналогично сложению встроенных в язык С++ беззнаковых чисел.
      */
-    static GNumber add_mod(GNumber x, GNumber y)
+    static GNumber add_mod(const GNumber &x, const GNumber &y)
     {
         if (x.is_overflow() || y.is_overflow())
         {
@@ -454,7 +454,7 @@ struct GNumber
             result.set_nan();
             return result;
         }
-        const ULOW ac = x.mLow + y.mLow;
+        const ULOW &ac = x.mLow + y.mLow;
         ULOW bd = x.mHigh + y.mHigh;
         bd += ac < std::min(x.mLow, y.mLow) ? ULOW{1u} : ULOW{0u};
         GNumber result{ac, bd};
@@ -465,7 +465,7 @@ struct GNumber
      * @brief Вычитает два числа как беззнаковые по базовому модулю.
      * @details Поведение аналогично вычитанию встроенных в язык С++ беззнаковых чисел.
      */
-    static GNumber sub_mod(GNumber x, GNumber y)
+    static GNumber sub_mod(const GNumber &x, const GNumber &y)
     {
         if (x.is_overflow() || y.is_overflow())
         {
@@ -481,7 +481,7 @@ struct GNumber
         }
         if (x >= y)
         {
-            const ULOW ac = ULOW::sub_mod(x.mLow, y.mLow);
+            const ULOW &ac = ULOW::sub_mod(x.mLow, y.mLow);
             ULOW bd = ULOW::sub_mod(x.mHigh, y.mHigh);
             bd -= x.mLow < y.mLow ? ULOW{1u} : ULOW{0u};
             GNumber result{ac, bd};
@@ -489,9 +489,9 @@ struct GNumber
         }
         else
         {
-            y = get_max_value() - y;
-            y.inc();
-            return add_mod(x, y);
+            GNumber tmp = get_max_value() - y;
+            tmp.inc();
+            return add_mod(x, tmp);
         }
     }
 
@@ -499,7 +499,7 @@ struct GNumber
      * @brief Смена знака, приводится по базовому модулю.
      * @details y = (-x) mod 2^W.
      */
-    static GNumber neg_mod(GNumber x)
+    static GNumber neg_mod(const GNumber &x)
     {
         return sub_mod(GNumber{0}, x);
     }
@@ -508,7 +508,7 @@ struct GNumber
      * @brief Вычисляет произведение двух W-битных чисел как беззнаковых по модулю 2^W.
      * @details Поведение аналогично умножению встроенных в язык С++ беззнаковых чисел.
      */
-    static GNumber mult_mod(GNumber x, GNumber y)
+    static GNumber mult_mod(const GNumber &x, const GNumber &y)
     {
         // x*y = (a + w*b)(c + w*d) = ac + w*(ad + bc) + w*w*bd = (ac + w*(ad + bc)) mod 2^128;
         if (x.is_overflow() || y.is_overflow())
@@ -523,9 +523,9 @@ struct GNumber
             result.set_nan();
             return result;
         }
-        const GNumber ac = mult_ext(x.mLow, y.mLow);
-        const GNumber ad = mult_ext(x.mLow, y.mHigh);
-        const GNumber bc = mult_ext(x.mHigh, y.mLow);
+        const GNumber &ac = mult_ext(x.mLow, y.mLow);
+        const GNumber &ad = mult_ext(x.mLow, y.mHigh);
+        const GNumber &bc = mult_ext(x.mHigh, y.mLow);
         GNumber result = add_mod(ad, bc);
         result = shl_half_width_mod(result);
         result = add_mod(result, ac);
@@ -567,7 +567,7 @@ struct GNumber
             return result;
         }
         result.mSign = this->mSign() ^ rhs.mSign();
-        result = result + shl_half_width( X * rhs.mHigh );
+        result = result + shl_half_width(X * rhs.mHigh);
         return result;
     }
 
@@ -663,6 +663,7 @@ struct GNumber
     // Наиболее вероятное общее количество итераций: 4...6.
     std::pair<GNumber, GNumber> operator/(const GNumber other) const
     {
+        assert(!other.is_zero());
         GNumber X = *this;
         GNumber Y = other;
         if (X.is_overflow() || Y.is_overflow())
@@ -687,24 +688,20 @@ struct GNumber
         X.mSign = make_sign_inverse;
         Y.mSign = 0;
         const auto [Q, R] = X.mHigh / Y.mHigh;
-        const ULOW Delta = mMaxULOW - Y.mLow;
-        const GNumber DeltaQ = mult_ext(Delta, Q);
+        const ULOW &Delta = mMaxULOW - Y.mLow;
+        const GNumber &DeltaQ = mult_ext(Delta, Q);
         GNumber W1 = GNumber{ULOW{0}, R} - GNumber{ULOW{0}, Q};
         W1 = W1 + DeltaQ;
-        const ULOW C1 = (Y.mHigh < mMaxULOW) ? Y.mHigh + ULOW{1} : mMaxULOW;
-        const ULOW W2 = mMaxULOW - (Delta / C1).first;
+        const ULOW &C1 = (Y.mHigh < mMaxULOW) ? Y.mHigh + ULOW{1} : mMaxULOW;
+        const ULOW &W2 = mMaxULOW - (Delta / C1).first;
         auto [Quotient, _] = W1 / W2;
         std::tie(Quotient, std::ignore) = Quotient / C1;
         GNumber result = GNumber{Q, ULOW{0}} + Quotient;
         if (make_sign_inverse)
-        {
             result = -result;
-        }
         GNumber N = Y * result.mLow;
         if (make_sign_inverse)
-        {
             N = -N;
-        }
         assert(!N.is_overflow());
         GNumber Error = X - N;
         GNumber More = Error - Y;

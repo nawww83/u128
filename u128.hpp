@@ -22,7 +22,8 @@ namespace u128
         ULOW B;
         ULOW C;
         ULOW D;
-        bool is_zero_denominator() const {
+        bool is_zero_denominator() const
+        {
             return C == 0 && D == 0;
         }
     };
@@ -692,6 +693,7 @@ namespace u128
         // Наиболее вероятное общее количество итераций: 4...6.
         std::pair<U128, U128> operator/(const U128 other) const
         {
+            assert(!other.is_zero());
             U128 X = *this;
             U128 Y = other;
             if (X.is_overflow() || Y.is_overflow())
@@ -814,7 +816,7 @@ namespace u128
         }
 
         /**
-         * Сдвиг влеово на 64 бита беззнаковой части. 
+         * Сдвиг влеово на 64 бита беззнаковой части.
          * Сохраняет знак. С переполнением.
          */
         static U128 shl64(U128 x)
