@@ -9,6 +9,7 @@
 #include "u128_utils.h"
 
 using U256 = GNumber<U128, 64>;
+using U512 = GNumber<U256, 128>;
 
 static auto const seed = std::random_device{}();
 
@@ -35,14 +36,26 @@ auto roll_bool = [urbg = std::mt19937{seed},
     return distr(urbg) % 2;
 };
 
+/**
+ * Конструирует два 128-битных числа {B + M*A, D + M*C}.
+ */
 static std::pair<U128, U128> construct_two_128bit_numbers(const Quadrupole& q, const Signess& s) {
     return std::make_pair( U128{q.B, q.A, Sign{s.s1}},
                         U128{q.D, q.C, Sign{s.s2}} );
 }
 
 static std::pair<U256, U256> construct_two_256bit_numbers(const Quadrupole& q1, const Quadrupole& q2, const Signess& s) {
-    return std::make_pair(U256{U128{q1.B, q1.A}, U128{q2.B, q2.A}, Sign{s.s1}},
-                        U256{U128{q1.D, q1.C}, U128{q2.D, q2.C}, Sign{s.s2}} );
+    const auto& [N1, D1] = construct_two_128bit_numbers(q1, Signess{false});
+    const auto& [N2, D2] = construct_two_128bit_numbers(q2, Signess{false});
+    return std::make_pair(U256{N1, N2, Sign{s.s1}},
+                        U256{D1, D2, Sign{s.s2}} );
+}
+
+static std::pair<U512, U512> construct_two_512bit_numbers(const Quadrupole& q1, const Quadrupole& q2, const Quadrupole& q3, const Quadrupole& q4, const Signess& s) {
+    const auto& [N1, D1] = construct_two_256bit_numbers(q1, q2, Signess{false});
+    const auto& [N2, D2] = construct_two_256bit_numbers(q3, q4, Signess{false});
+    return std::make_pair(U512{N1, N2, Sign{s.s1}},
+                        U512{D1, D2, Sign{s.s2}} );
 }
 
 template <typename T>
@@ -360,6 +373,96 @@ void test_division_u256_randomly(long long N)
         if (q1.is_zero_denominator() && q2.is_zero_denominator())
             continue;
         is_ok &= make_test(q1, q2, s);
+        assert(is_ok);
+        if (counter % internal_step == 0)
+        {
+            external_iterations++;
+            std::cout << "... iterations: " << counter << ". External: " << external_iterations << " from " << N << '\n';
+        }
+    }
+}
+
+void test_division_u512_semi_randomly(long long N)
+{
+    if (N < 1)
+    {
+        std::cout << "Skipped!\n";
+        return;
+    }
+    PythonCaller<U512> caller;
+    const std::vector<ULOW> choice{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
+                                   65535, 65534, 65533, 65532, 65531, 65530,
+                                   16384, 16383, 16382, 16385, 16386, 16387, 16388,
+                                   -1ull, -2ull, -3ull, -4ull, -5ull, -6ull, -7ull};
+    auto make_test = [&caller](const Quadrupole& q1, const Quadrupole& q2, const Quadrupole& q3, const Quadrupole& q4, const Signess& s) -> bool
+    {
+        return test_div<U512>(construct_two_512bit_numbers(q1, q2, q2, q3, s),
+                        caller);
+    };
+    auto get_quadrupole = [&choice]() -> Quadrupole
+    {
+        auto idx1 = roll_uint() % choice.size();
+        auto idx2 = roll_uint() % choice.size();
+        auto idx3 = roll_uint() % choice.size();
+        auto idx4 = roll_uint() % choice.size();
+        Quadrupole q{choice[idx1], choice[idx2], choice[idx3], choice[idx4]};
+        return q;
+    };
+    long long counter = 0;
+    long long external_iterations = 0;
+    bool is_ok = true;
+    while (external_iterations < N)
+    {
+        ++counter;
+        const Quadrupole q1 = get_quadrupole();
+        const Quadrupole q2 = get_quadrupole();
+        const Quadrupole q3 = get_quadrupole();
+        const Quadrupole q4 = get_quadrupole();
+        const Signess s{roll_bool(), roll_bool()};
+        if (q1.is_zero_denominator() && q2.is_zero_denominator())
+            continue;
+        is_ok &= make_test(q1, q2, q3, q4, s);
+        assert(is_ok);
+        if (counter % internal_step == 0)
+        {
+            external_iterations++;
+            std::cout << "... iterations: " << counter << ". External: " << external_iterations << " from " << N << '\n';
+        }
+    }
+}
+
+void test_division_u512_randomly(long long N)
+{
+    if (N < 1)
+    {
+        std::cout << "Skipped!\n";
+        return;
+    }
+    PythonCaller<U512> caller;
+    auto make_test = [&caller](const Quadrupole& q1, const Quadrupole& q2, const Quadrupole& q3, const Quadrupole& q4, const Signess& s) -> bool
+    {
+        return test_div<U512>(construct_two_512bit_numbers(q1, q2, q2, q3, s),
+                        caller);
+    };
+    auto get_quadrupole = []() -> Quadrupole
+    {
+        Quadrupole q{roll_ulow(), roll_ulow(), roll_ulow(), roll_ulow()};
+        return q;
+    };
+    long long counter = 0;
+    long long external_iterations = 0;
+    bool is_ok = true;
+    while (external_iterations < N)
+    {
+        ++counter;
+        const Quadrupole q1 = get_quadrupole();
+        const Quadrupole q2 = get_quadrupole();
+        const Quadrupole q3 = get_quadrupole();
+        const Quadrupole q4 = get_quadrupole();
+        const Signess s{roll_bool(), roll_bool()};
+        if (q1.is_zero_denominator() && q2.is_zero_denominator())
+            continue;
+        is_ok &= make_test(q1, q2, q3, q4, s);
         assert(is_ok);
         if (counter % internal_step == 0)
         {

@@ -100,6 +100,19 @@ void test_division_u256_semi_randomly(long long N);
 void test_division_u256_randomly(long long N);
 
 /**
+ * Полуслучайный тест деления 512-битных чисел, используя ограниченный набор 
+ * значений вблизи угловых и граничных.
+ * @param N Количество внешних итераций.
+*/
+void test_division_u512_semi_randomly(long long N);
+
+/**
+ * Случайный тест деления 512-битных чисел.
+ * @param N Количество внешних итераций.
+*/
+void test_division_u512_randomly(long long N);
+
+/**
  * Тест факторизации метода Ферма.
  */
 void ferma_tests();

@@ -1,10 +1,11 @@
 #include <iostream>
+#include <cstdint> // uint64_t
 #include "tests.hpp"
 #include "gnumber.hpp"
 
 int main(int argc, char *argv[])
 {
-    int g_tests = 16; // Выбор тестов для запуска.
+    uint64_t g_tests = 16ull; // Выбор тестов для запуска.
     long long N = 3;
     if (argc > 1)
     {
@@ -13,7 +14,7 @@ int main(int argc, char *argv[])
     }
     if (argc > 2)
     {
-        g_tests = atoi(argv[2]);
+        g_tests = std::stoull(argv[2]);
         std::cout << "You set the test selector: " << g_tests << '\n';
     }
     {
@@ -150,7 +151,17 @@ int main(int argc, char *argv[])
         test_division_u256_randomly(N);
         std::cout << "Ok\n";
     }
-    if (g_tests && 0b10000)
+    if (g_tests & 0b10000)
+    {
+        std::cout << "Run semi-random U512 division test...\n";
+        test_division_u512_semi_randomly(N);
+        std::cout << "Ok\n";
+
+        std::cout << "Run random U512 division test...\n";
+        test_division_u512_randomly(N);
+        std::cout << "Ok\n";
+    }
+    if (g_tests && 0b100000)
     {
         std::cout << "Quadratic residue test...\n";
         quadratic_residue_tests();
