@@ -1,5 +1,6 @@
 #pragma once
 
+#include <utility> // std::pair
 #include <python3.10/Python.h>
 #include "u128.hpp"
 
@@ -45,12 +46,11 @@ private:
 
 /**
  * Тест деления двух чисел: сравнивается с реализацией Python.
- * @param z1 Делимое.
- * @param z2 Делитель.
+ * @param z Делимое и делитель, соответственно.
  * @return Успех/неудача.
 */
 template <typename T>
-bool test_div(T z1, T z2, PythonCaller<T>& caller);
+bool test_div(const std::pair<T, T>& z, PythonCaller<T>& caller);
 
 /**
  * Тест извлечения корня квадратного 128-битных чисел: сравнивается с реализацией Python.

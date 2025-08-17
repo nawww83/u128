@@ -22,6 +22,9 @@ namespace u128
         ULOW B;
         ULOW C;
         ULOW D;
+        bool is_zero_denominator() const {
+            return C == 0 && D == 0;
+        }
     };
 
     struct Signess

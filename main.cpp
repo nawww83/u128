@@ -4,12 +4,17 @@
 
 int main(int argc, char *argv[])
 {
-    constexpr int g_tests = 16; // Выбор тестов для запуска.
+    int g_tests = 16; // Выбор тестов для запуска.
     long long N = 3;
     if (argc > 1)
     {
         N = atoi(argv[1]);
         std::cout << "You set the number of external iterations N: " << N << '\n';
+    }
+    if (argc > 2)
+    {
+        g_tests = atoi(argv[2]);
+        std::cout << "You set the test selector: " << g_tests << '\n';
     }
     {
         using U256 = GNumber<U128, 64>;

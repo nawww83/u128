@@ -8,6 +8,8 @@
 
 #include "u128_utils.h"
 
+using U256 = GNumber<U128, 64>;
+
 static auto const seed = std::random_device{}();
 
 static auto const internal_step = 1ll << 20;
@@ -32,6 +34,16 @@ auto roll_bool = [urbg = std::mt19937{seed},
 {
     return distr(urbg) % 2;
 };
+
+static std::pair<U128, U128> construct_two_128bit_numbers(const Quadrupole& q, const Signess& s) {
+    return std::make_pair( U128{q.B, q.A, Sign{s.s1}},
+                        U128{q.D, q.C, Sign{s.s2}} );
+}
+
+static std::pair<U256, U256> construct_two_256bit_numbers(const Quadrupole& q1, const Quadrupole& q2, const Signess& s) {
+    return std::make_pair(U256{U128{q1.B, q1.A}, U128{q2.B, q2.A}, Sign{s.s1}},
+                        U256{U128{q1.D, q1.C}, U128{q2.D, q2.C}, Sign{s.s2}} );
+}
 
 template <typename T>
 PythonCaller<T>::PythonCaller()
@@ -85,11 +97,11 @@ bool PythonCaller<T>::Compare(PyObject *result, const char *reference) const
 }
 
 template <typename T>
-bool test_div(T z1, T z2, PythonCaller<T> &caller)
+bool test_div(const std::pair<T, T>& z, PythonCaller<T> &caller)
 {
-    const auto [z3, _] = z1 / z2;
-    PyObject *quotient = caller.Divide(z1, z2);
-    return caller.Compare(quotient, z3.value().c_str());
+    const auto& [q, _] = z.first / z.second;
+    PyObject *quotient = caller.Divide(z.first, z.second);
+    return caller.Compare(quotient, q.value().c_str());
 }
 
 bool test_isqrt(U128 z, PythonCaller<U128> &caller)
@@ -199,10 +211,9 @@ void test_division_u128_semi_randomly(long long N)
                                    65535, 65534, 65533, 65532, 65531, 65530,
                                    16384, 16383, 16382, 16385, 16386, 16387, 16388,
                                    -1ull, -2ull, -3ull, -4ull, -5ull, -6ull, -7ull};
-    auto make_test = [&caller](const Quadrupole q, const Signess s) -> bool
+    auto make_test = [&caller](const Quadrupole& q, const Signess& s) -> bool
     {
-        return test_div<U128>(U128{q.B, q.A, Sign{s.s1}},
-                        U128{q.D, q.C, Sign{s.s2}},
+        return test_div<U128>(construct_two_128bit_numbers(q, s),
                         caller);
     };
     auto get_quadrupole = [&choice]() -> Quadrupole
@@ -222,10 +233,8 @@ void test_division_u128_semi_randomly(long long N)
         ++counter;
         const Quadrupole q = get_quadrupole();
         const Signess s{roll_bool(), roll_bool()};
-        if (q.C == 0 && q.D == 0)
-        {
+        if (q.is_zero_denominator())
             continue;
-        }
         is_ok &= make_test(q, s);
         assert(is_ok);
         if (counter % internal_step == 0)
@@ -244,10 +253,9 @@ void test_division_u128_randomly(long long N)
         return;
     }
     PythonCaller<U128> caller;
-    auto make_test = [&caller](const Quadrupole q, const Signess s) -> bool
+    auto make_test = [&caller](const Quadrupole& q, const Signess& s) -> bool
     {
-        return test_div<U128>(U128{q.B, q.A, Sign{s.s1}},
-                        U128{q.D, q.C, Sign{s.s2}},
+        return test_div<U128>(construct_two_128bit_numbers(q, s),
                         caller);
     };
     auto get_quadrupole = []() -> Quadrupole
@@ -263,10 +271,8 @@ void test_division_u128_randomly(long long N)
         ++counter;
         const Quadrupole q = get_quadrupole();
         const Signess s{roll_bool(), roll_bool()};
-        if (q.C == 0 && q.D == 0)
-        {
+        if (q.is_zero_denominator())
             continue;
-        }
         is_ok &= make_test(q, s);
         assert(is_ok);
         if (counter % internal_step == 0)
@@ -279,7 +285,6 @@ void test_division_u128_randomly(long long N)
 
 void test_division_u256_semi_randomly(long long N)
 {
-    using U256 = GNumber<U128, 64>;
     if (N < 1)
     {
         std::cout << "Skipped!\n";
@@ -290,10 +295,9 @@ void test_division_u256_semi_randomly(long long N)
                                    65535, 65534, 65533, 65532, 65531, 65530,
                                    16384, 16383, 16382, 16385, 16386, 16387, 16388,
                                    -1ull, -2ull, -3ull, -4ull, -5ull, -6ull, -7ull};
-    auto make_test = [&caller](const Quadrupole q1, const Quadrupole q2, const Signess s) -> bool
+    auto make_test = [&caller](const Quadrupole& q1, const Quadrupole& q2, const Signess& s) -> bool
     {
-        return test_div<U256>(U256{U128{q1.B, q1.A}, U128{q2.B, q2.A}, Sign{s.s1}},
-                        U256{U128{q1.D, q1.C}, U128{q2.D, q2.C}, Sign{s.s2}},
+        return test_div<U256>(construct_two_256bit_numbers(q1, q2, s),
                         caller);
     };
     auto get_quadrupole = [&choice]() -> Quadrupole
@@ -314,10 +318,8 @@ void test_division_u256_semi_randomly(long long N)
         const Quadrupole q1 = get_quadrupole();
         const Quadrupole q2 = get_quadrupole();
         const Signess s{roll_bool(), roll_bool()};
-        if (q1.C == 0 && q1.D == 0 && q2.C == 0 && q2.D == 0)
-        {
+        if (q1.is_zero_denominator() && q2.is_zero_denominator())
             continue;
-        }
         is_ok &= make_test(q1, q2, s);
         assert(is_ok);
         if (counter % internal_step == 0)
@@ -330,17 +332,15 @@ void test_division_u256_semi_randomly(long long N)
 
 void test_division_u256_randomly(long long N)
 {
-    using U256 = GNumber<U128, 64>;
     if (N < 1)
     {
         std::cout << "Skipped!\n";
         return;
     }
     PythonCaller<U256> caller;
-    auto make_test = [&caller](const Quadrupole q1, const Quadrupole q2, const Signess s) -> bool
+    auto make_test = [&caller](const Quadrupole& q1, const Quadrupole& q2, const Signess& s) -> bool
     {
-        return test_div<U256>(U256{U128{q1.B, q1.A}, U128{q2.B, q2.A}, Sign{s.s1}},
-                        U256{U128{q1.D, q1.C}, U128{q2.D, q2.C}, Sign{s.s2}},
+        return test_div<U256>(construct_two_256bit_numbers(q1, q2, s),
                         caller);
     };
     auto get_quadrupole = []() -> Quadrupole
@@ -357,10 +357,8 @@ void test_division_u256_randomly(long long N)
         const Quadrupole q1 = get_quadrupole();
         const Quadrupole q2 = get_quadrupole();
         const Signess s{roll_bool(), roll_bool()};
-        if (q1.C == 0 && q1.D == 0 && q2.C == 0 && q2.D == 0)
-        {
+        if (q1.is_zero_denominator() && q2.is_zero_denominator())
             continue;
-        }
         is_ok &= make_test(q1, q2, s);
         assert(is_ok);
         if (counter % internal_step == 0)
