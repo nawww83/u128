@@ -3,13 +3,7 @@
 #include <cassert>
 #include "tests.hpp"
 #include "solver.hpp"
-
-#include "gnumber.hpp"
-
 #include "u128_utils.h"
-
-using U256 = GNumber<U128, 64>;
-using U512 = GNumber<U256, 128>;
 
 static auto const seed = std::random_device{}();
 
@@ -87,6 +81,16 @@ PyObject *PythonCaller<T>::Divide(T X, T Y) const
 }
 
 template <typename T>
+PyObject *PythonCaller<T>::Multiply(T X, T Y) const
+{
+    const char *pythonScript = "c = a * b\n";
+    PyDict_SetItemString(mLocalDictionary, "a", PyLong_FromString(X.value().c_str(), nullptr, 10));
+    PyDict_SetItemString(mLocalDictionary, "b", PyLong_FromString(Y.value().c_str(), nullptr, 10));
+    PyRun_String(pythonScript, Py_file_input, mGlobalDictionary, mLocalDictionary);
+    return PyDict_GetItemString(mLocalDictionary, "c");
+}
+
+template <typename T>
 PyObject *PythonCaller<T>::ISqrt(T X) const
 {
     const char *pythonScript = "import math;y = math.isqrt(x)\n";
@@ -118,6 +122,13 @@ bool test_div(const std::pair<T, T> &z, PythonCaller<T> &caller)
     const auto &[q, _] = z.first / z.second;
     PyObject *quotient = caller.Divide(z.first, z.second);
     return caller.Compare(quotient, q.value().c_str());
+}
+
+bool test_256bit_mult(const std::pair<U256, U256> &z, PythonCaller<U256> &caller)
+{
+    const auto &q = U512::mult_ext(z.first, z.second);
+    PyObject *prod = caller.Multiply(z.first, z.second);
+    return caller.Compare(prod, q.value().c_str());
 }
 
 bool test_isqrt(U128 z, PythonCaller<U128> &caller)
@@ -466,6 +477,44 @@ void test_division_u512_randomly(long long N)
         if (q1.is_zero_denominator() && q2.is_zero_denominator() && q3.is_zero_denominator() && q4.is_zero_denominator())
             continue;
         is_ok &= make_test(q1, q2, q3, q4, s);
+        assert(is_ok);
+        if (counter % internal_step == 0)
+        {
+            external_iterations++;
+            std::cout << "... iterations: " << counter << ". External: " << external_iterations << " from " << N << '\n';
+        }
+    }
+}
+
+void test_mutliply_u256_randomly(long long N)
+{
+    if (N < 1)
+    {
+        std::cout << "Skipped!\n";
+        return;
+    }
+    PythonCaller<U256> caller;
+    auto make_test = [&caller](const Quadrupole &q1, const Quadrupole &q2) -> bool
+    {
+        return test_256bit_mult(construct_two_256bit_numbers(q1, q2, Signess{false, false}),
+                              caller);
+    };
+    auto get_quadrupole = []() -> Quadrupole
+    {
+        Quadrupole q{roll_ulow(), roll_ulow(), roll_ulow(), roll_ulow()};
+        return q;
+    };
+    long long counter = 0;
+    long long external_iterations = 0;
+    bool is_ok = true;
+    while (external_iterations < N)
+    {
+        ++counter;
+        const Quadrupole q1 = get_quadrupole();
+        const Quadrupole q2 = get_quadrupole();
+        if (q1.is_zero_denominator() && q2.is_zero_denominator())
+            continue;
+        is_ok &= make_test(q1, q2);
         assert(is_ok);
         if (counter % internal_step == 0)
         {

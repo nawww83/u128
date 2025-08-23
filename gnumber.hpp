@@ -389,7 +389,7 @@ struct GNumber
     }
 
     /**
-     * Умножение двух "половинок" с расширением до полного числа.
+     * Беззнаковое умножение двух "половинок" с расширением до полного числа.
      */
     static GNumber mult_ext(const ULOW &x, const ULOW &y)
     {
@@ -744,7 +744,7 @@ struct GNumber
         std::string result;
         if (this->is_overflow())
         {
-            result = INF;
+            result = u128::INF;
             return result;
         }
         if (this->is_nan())
@@ -758,7 +758,7 @@ struct GNumber
             const int d = X.mod10();
             if (d < 0)
                 return result;
-            result.push_back(DIGITS[d]);
+            result.push_back(u128::DIGITS[d]);
             X = X.div10();
         }
         if (this->is_negative() && !this->is_zero())

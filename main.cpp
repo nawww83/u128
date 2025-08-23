@@ -185,6 +185,12 @@ int main(int argc, char *argv[])
         qs_factorization_tests();
         std::cout << "Ok\n";
     }
+    if (g_tests & 0b1000000)
+    {
+        std::cout << "Run random U256 full multiplication test...\n";
+        test_mutliply_u256_randomly(N);
+        std::cout << "Ok\n";
+    }
 
     std::cout << "All is ok!" << std::endl;
     return 0;
