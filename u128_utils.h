@@ -8,6 +8,9 @@
 #include <functional> // std::function
 #include "solver.hpp" // GaussJordan
 
+using U256 = GNumber<u128::U128, 64>;
+using U512 = GNumber<U256, 128>;
+
 namespace u128
 {
     namespace utils
@@ -44,9 +47,10 @@ namespace u128
         }
 
         /**
-         * @brief НОД двух чисел.
+         * @brief НОД двух чисел. TODO: Перенести в gutils.hpp.
          */
-        inline U128 gcd(U128 x, U128 y)
+        template <typename T>
+        inline T gcd(T x, T y)
         {
             if (x.is_singular())
                 return x;
@@ -60,7 +64,7 @@ namespace u128
             {
                 while (!y.is_zero())
                 {
-                    const U128 y_copy = y;
+                    const T y_copy = y;
                     y = (x / y).second;
                     x = y_copy;
                 }
@@ -70,7 +74,7 @@ namespace u128
             {
                 while (!x.is_zero())
                 {
-                    const U128 x_copy = x;
+                    const T x_copy = x;
                     x = (y / x).second;
                     y = x_copy;
                 }
@@ -365,12 +369,18 @@ namespace u128
          */
         inline std::map<U128, int> factor_qs(U128 x, unsigned int sieve_size, unsigned int factor_base)
         {
+            auto convert_u128_to_u512 = [](const U128& x) -> U512 {
+                return U512{U256{x, U128{0}}, U256{0}};
+            };
+            auto convert_u512_to_u128 = [](const U512& x) -> U128 {
+                return x.mLow.mLow;
+            };
             std::map<U128, int> result{};
             if (sieve_size == 0 || factor_base == 0)
             {
                 return result;
             }
-            auto find_a_divisor = [sieve_size, factor_base](U128 x) -> U128
+            auto find_a_divisor = [sieve_size, factor_base, &convert_u128_to_u512, convert_u512_to_u128](U128 x) -> U128
             {
                 if (x.is_zero())
                     return x;
@@ -395,6 +405,7 @@ namespace u128
                 {
                     x_sqrt.inc();
                 }
+                const U512& x_sqrt_ext = convert_u128_to_u512(x_sqrt);
                 // std::cout << "Sqrt(x): " << x_sqrt.value() << std::endl;
                 std::vector<U128> sieve(sieve_size);
                 U128 ii{0, 0};
@@ -499,8 +510,8 @@ namespace u128
                     // }
                     // std::cout << "}." << std::endl;
                     // TODO: expand A, B, C, GCD(.) to U256 or U512 etc. to reduce memory consumption.
-                    U128 A{1};
-                    std::map<U128, int> B_factors;
+                    U512 A{1};
+                    std::map<U512, int> B_factors;
                     for (auto it = indices.begin(); it != indices.end(); it++)
                     {
                         const auto index = indices_where_unit_sieve.at(*it);
@@ -519,11 +530,11 @@ namespace u128
                             }
                         }
                         // std::cout << "A: " << A.value() << std::endl;
-                        A = A * (x_sqrt + U128{index, 0});
+                        A = A * (x_sqrt_ext + U512{index});
                         for (const auto &[prime, power] : sieve_factors)
                         {
                             // std::cout << "prime: " << prime.value() << ", power: " << power << std::endl;
-                            B_factors[prime] += power;
+                            B_factors[convert_u128_to_u512(prime)] += power;
                         }
                         if (A.is_singular())
                         {
@@ -535,23 +546,24 @@ namespace u128
                     {
                         element.second /= 2;
                     }
-                    U128 B{1};
+                    U512 B{1};
                     for (const auto &[prime, power] : B_factors)
                     {
-                        U128 tmp{1};
+                        U512 tmp{1};
                         for (int i = 0; i < power; ++i)
                             tmp = tmp * prime;
                         B = B * tmp;
                     }
                     // std::cout << "B: " << B.value() << std::endl;
-                    const U128 &C = A - B;
+                    const U512& x_ext = convert_u128_to_u512(x);
+                    const U512 &C = A - B;
                     // std::cout << "ABC: " << A.value() << ", " << B.value() << ", " << C.value() << std::endl;
-                    const U128 &GCD = gcd(C, x);
+                    const U512 &GCD = gcd(C, x_ext);
                     // std::cout << "GCD: " << GCD.value() << std::endl;
-                    if (GCD < x && GCD > U128{1})
+                    if (GCD < x_ext && GCD > U512{1})
                     {
                         // std::cout << "Fixed" << std::endl;
-                        return GCD;
+                        return convert_u512_to_u128(GCD);
                     }
                 }
                 return x;

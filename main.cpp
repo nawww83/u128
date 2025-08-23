@@ -187,6 +187,10 @@ int main(int argc, char *argv[])
     }
     if (g_tests & 0b1000000)
     {
+        std::cout << "Run semi-random U256 full multiplication test...\n";
+        test_mutliply_u256_semi_randomly(N);
+        std::cout << "Ok\n";
+
         std::cout << "Run random U256 full multiplication test...\n";
         test_mutliply_u256_randomly(N);
         std::cout << "Ok\n";

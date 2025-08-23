@@ -258,7 +258,7 @@ void test_division_u128_semi_randomly(long long N)
     while (external_iterations < N)
     {
         ++counter;
-        const Quadrupole q = get_quadrupole();
+        const Quadrupole& q = get_quadrupole();
         const Signess s{roll_bool(), roll_bool()};
         if (q.is_zero_denominator())
             continue;
@@ -296,7 +296,7 @@ void test_division_u128_randomly(long long N)
     while (external_iterations < N)
     {
         ++counter;
-        const Quadrupole q = get_quadrupole();
+        const Quadrupole& q = get_quadrupole();
         const Signess s{roll_bool(), roll_bool()};
         if (q.is_zero_denominator())
             continue;
@@ -342,8 +342,8 @@ void test_division_u256_semi_randomly(long long N)
     while (external_iterations < N)
     {
         ++counter;
-        const Quadrupole q1 = get_quadrupole();
-        const Quadrupole q2 = get_quadrupole();
+        const Quadrupole& q1 = get_quadrupole();
+        const Quadrupole& q2 = get_quadrupole();
         const Signess s{roll_bool(), roll_bool()};
         if (q1.is_zero_denominator() && q2.is_zero_denominator())
             continue;
@@ -381,8 +381,8 @@ void test_division_u256_randomly(long long N)
     while (external_iterations < N)
     {
         ++counter;
-        const Quadrupole q1 = get_quadrupole();
-        const Quadrupole q2 = get_quadrupole();
+        const Quadrupole& q1 = get_quadrupole();
+        const Quadrupole& q2 = get_quadrupole();
         const Signess s{roll_bool(), roll_bool()};
         if (q1.is_zero_denominator() && q2.is_zero_denominator())
             continue;
@@ -428,10 +428,10 @@ void test_division_u512_semi_randomly(long long N)
     while (external_iterations < N)
     {
         ++counter;
-        const Quadrupole q1 = get_quadrupole();
-        const Quadrupole q2 = get_quadrupole();
-        const Quadrupole q3 = get_quadrupole();
-        const Quadrupole q4 = get_quadrupole();
+        const Quadrupole& q1 = get_quadrupole();
+        const Quadrupole& q2 = get_quadrupole();
+        const Quadrupole& q3 = get_quadrupole();
+        const Quadrupole& q4 = get_quadrupole();
         const Signess s{roll_bool(), roll_bool()};
         if (q1.is_zero_denominator() && q2.is_zero_denominator() && q3.is_zero_denominator() && q4.is_zero_denominator())
             continue;
@@ -469,14 +469,60 @@ void test_division_u512_randomly(long long N)
     while (external_iterations < N)
     {
         ++counter;
-        const Quadrupole q1 = get_quadrupole();
-        const Quadrupole q2 = get_quadrupole();
-        const Quadrupole q3 = get_quadrupole();
-        const Quadrupole q4 = get_quadrupole();
+        const Quadrupole& q1 = get_quadrupole();
+        const Quadrupole& q2 = get_quadrupole();
+        const Quadrupole& q3 = get_quadrupole();
+        const Quadrupole& q4 = get_quadrupole();
         const Signess s{roll_bool(), roll_bool()};
         if (q1.is_zero_denominator() && q2.is_zero_denominator() && q3.is_zero_denominator() && q4.is_zero_denominator())
             continue;
         is_ok &= make_test(q1, q2, q3, q4, s);
+        assert(is_ok);
+        if (counter % internal_step == 0)
+        {
+            external_iterations++;
+            std::cout << "... iterations: " << counter << ". External: " << external_iterations << " from " << N << '\n';
+        }
+    }
+}
+
+void test_mutliply_u256_semi_randomly(long long N)
+{
+    if (N < 1)
+    {
+        std::cout << "Skipped!\n";
+        return;
+    }
+    PythonCaller<U256> caller;
+    const std::vector<ULOW> choice{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
+                                   65535, 65534, 65533, 65532, 65531, 65530,
+                                   16384, 16383, 16382, 16385, 16386, 16387, 16388,
+                                   -1ull, -2ull, -3ull, -4ull, -5ull, -6ull, -7ull};
+    auto make_test = [&caller](const Quadrupole &q1, const Quadrupole &q2) -> bool
+    {
+        return test_256bit_mult(construct_two_256bit_numbers(q1, q2, Signess{false, false}),
+                              caller);
+    };
+    auto get_quadrupole = [&choice]() -> Quadrupole
+    {
+        auto idx1 = roll_uint() % choice.size();
+        auto idx2 = roll_uint() % choice.size();
+        auto idx3 = roll_uint() % choice.size();
+        auto idx4 = roll_uint() % choice.size();
+        Quadrupole q{choice[idx1], choice[idx2], choice[idx3], choice[idx4]};
+        return q;
+    };
+    long long counter = 0;
+    long long external_iterations = 0;
+    bool is_ok = true;
+    while (external_iterations < N)
+    {
+        ++counter;
+        const Quadrupole& q1 = get_quadrupole();
+        const Quadrupole& q2 = get_quadrupole();
+        if (q1.is_zero_denominator() && q2.is_zero_denominator())
+            continue;
+        is_ok &= make_test(q1, q2);
         assert(is_ok);
         if (counter % internal_step == 0)
         {
@@ -510,8 +556,8 @@ void test_mutliply_u256_randomly(long long N)
     while (external_iterations < N)
     {
         ++counter;
-        const Quadrupole q1 = get_quadrupole();
-        const Quadrupole q2 = get_quadrupole();
+        const Quadrupole& q1 = get_quadrupole();
+        const Quadrupole& q2 = get_quadrupole();
         if (q1.is_zero_denominator() && q2.is_zero_denominator())
             continue;
         is_ok &= make_test(q1, q2);
@@ -790,23 +836,24 @@ void qs_factorization_tests()
     const unsigned int sieve_size = 50'000u;
     for (int factor_base = 8;; factor_base++)
     {
-        // std::cout << "Factor base: " << factor_base << ", sieve size: " << sieve_size << std::endl;
+        std::cout << "Factor base: " << factor_base << ", sieve size: " << sieve_size << std::endl;
         const U128 x{8'928'986'827ull, 0};
         // const U128 x {140'789'674'669'022'167ull, 0};
         const auto &result = factor_qs(x, sieve_size, factor_base);
-        // std::cout << "QS factorization 2: {";
+        std::cout << "QS factorization 2: {";
         int idx = 0;
         bool factorized = false;
         for (const auto &[prime, power] : result)
         {
-            // std::cout << prime.value() << "^" << power << (idx < (result.size() - 1) ? ", " : "");
+            std::cout << prime.value() << "^" << power << (idx < (result.size() - 1) ? ", " : "");
             idx++;
             factorized |= (idx > 1) || (power > 1);
         }
-        // std::cout << "}." << std::endl;
-        if (factorized)
+        std::cout << "}." << std::endl;
+        if (factorized) {
+            bool is_ok = result == std::map<U128, int>{{U128{74311ull, 0}, 1}, {U128{120157ull, 0}, 1}};
+            assert(is_ok);
             break;
-        // bool is_ok = result == std::map<U128, int>{{U128{74311ull, 0}, 1}, {U128{120157ull, 0}, 1}};
-        // assert(is_ok);
+        }
     }
 }
