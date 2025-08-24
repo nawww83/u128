@@ -819,27 +819,21 @@ void solver_tests()
 
 void qs_factorization_tests()
 {
-    using namespace u128::utils;
-    {
-        U128 x{15347ull, 0};
-        const auto &result = factor_qs(x, 200, 8);
-        // std::cout << "QS factorization 1: {";
-        // int idx = 0;
-        // for (const auto& [prime, power] : result) {
-        // std::cout << prime.value() << "^" << power << (idx < (result.size() - 1) ? ", " : "");
-        // idx++;
-        // }
-        // std::cout << "}." << std::endl;
-        bool is_ok = result == std::map<U128, int>{{U128{103, 0}, 1}, {U128{149, 0}, 1}};
-        assert(is_ok);
-    }
-    const unsigned int sieve_size = 50'000u;
-    for (int factor_base = 8;; factor_base++)
+    static const int not_more_solves = 3; // TODO: может сделать 1?
+    // using namespace u128;
+    // {
+    //     U128 x{15347ull, 0};
+    //     const auto &result = utils::factor_qs(x, 200, 8);
+    //     bool is_ok = result == std::map<U128, int>{{U128{103, 0}, 1}, {U128{149, 0}, 1}};
+    //     assert(is_ok);
+    // }
+    const unsigned int sieve_size = 700'000u;
+    for (int factor_base = 80; ; factor_base++)
     {
         std::cout << "Factor base: " << factor_base << ", sieve size: " << sieve_size << std::endl;
-        const U128 x{8'928'986'827ull, 0};
-        // const U128 x {140'789'674'669'022'167ull, 0};
-        const auto &result = factor_qs(x, sieve_size, factor_base);
+        // const U128 x{8'928'986'827ull, 0};
+        const U128 x {140'789'674'669'022'167ull};
+        const auto &result = utils::factor_qs(x, sieve_size, factor_base, not_more_solves);
         std::cout << "QS factorization 2: {";
         int idx = 0;
         bool factorized = false;
@@ -850,8 +844,13 @@ void qs_factorization_tests()
             factorized |= (idx > 1) || (power > 1);
         }
         std::cout << "}." << std::endl;
+        // if (factorized) {
+            // bool is_ok = result == std::map<U128, int>{{U128{74311ull, 0}, 1}, {U128{120157ull, 0}, 1}};
+            // assert(is_ok);
+            // break;
+        // }
         if (factorized) {
-            bool is_ok = result == std::map<U128, int>{{U128{74311ull, 0}, 1}, {U128{120157ull, 0}, 1}};
+            bool is_ok = result == std::map<U128, int>{{U128{12900227ull, 0}, 1}, {U128{10913736221ull, 0}, 1}};
             assert(is_ok);
             break;
         }

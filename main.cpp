@@ -1,5 +1,4 @@
 #include <iostream>
-#include <cstdint> // uint64_t
 #include "tests.hpp"
 #include "gnumber.hpp"
 
@@ -171,7 +170,7 @@ int main(int argc, char *argv[])
         test_division_u512_randomly(N);
         std::cout << "Ok\n";
     }
-    if (g_tests && 0b100000)
+    if (g_tests & 0b100000)
     {
         std::cout << "Quadratic residue test...\n";
         quadratic_residue_tests();
@@ -183,6 +182,7 @@ int main(int argc, char *argv[])
 
         std::cout << "QS factorization test...\n";
         qs_factorization_tests();
+
         std::cout << "Ok\n";
     }
     if (g_tests & 0b1000000)

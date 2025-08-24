@@ -8,8 +8,12 @@
 #include <functional> // std::function
 #include "solver.hpp" // GaussJordan
 
+#include "gnumber.hpp" // GNumber
+
 using U256 = GNumber<u128::U128, 64>;
 using U512 = GNumber<U256, 128>;
+using U1024 = GNumber<U512, 256>;
+using U2048 = GNumber<U1024, 512>;
 
 namespace u128
 {
@@ -365,22 +369,24 @@ namespace u128
          * @param x Число.
          * @param sieve_size Размер решета, больше нуля.
          * @param factor_base Фактор-база (количество простых чисел-базисов), больше нуля.
+         * @param not_more_solves Порог, указывающий наибольшее количество анализируемых решений СЛАУ.
          * @return Результат разложения.
          */
-        inline std::map<U128, int> factor_qs(U128 x, unsigned int sieve_size, unsigned int factor_base)
+        inline std::map<U128, int> factor_qs(U128 x, unsigned int sieve_size, unsigned int factor_base, int not_more_solves)
         {
-            auto convert_u128_to_u512 = [](const U128& x) -> U512 {
-                return U512{U256{x, U128{0}}, U256{0}};
+            using Uext = U2048;
+            auto convert_u128_to_ext = [](const U128& x) -> Uext {
+                return U2048{U1024{U512{U256{x, U128{0}}, U256{0}}, U512{0}}, U1024{0}};
             };
-            auto convert_u512_to_u128 = [](const U512& x) -> U128 {
-                return x.mLow.mLow;
+            auto convert_ext_to_u128 = [](const Uext& x) -> U128 {
+                return x.mLow.mLow.mLow.mLow;
             };
             std::map<U128, int> result{};
             if (sieve_size == 0 || factor_base == 0)
             {
                 return result;
             }
-            auto find_a_divisor = [sieve_size, factor_base, &convert_u128_to_u512, convert_u512_to_u128](U128 x) -> U128
+            auto find_a_divisor = [sieve_size, factor_base, not_more_solves, &convert_u128_to_ext, &convert_ext_to_u128](U128 x) -> U128
             {
                 if (x.is_zero())
                     return x;
@@ -405,10 +411,10 @@ namespace u128
                 {
                     x_sqrt.inc();
                 }
-                const U512& x_sqrt_ext = convert_u128_to_u512(x_sqrt);
+                const auto& x_sqrt_ext = convert_u128_to_ext(x_sqrt);
                 // std::cout << "Sqrt(x): " << x_sqrt.value() << std::endl;
                 std::vector<U128> sieve(sieve_size);
-                U128 ii{0, 0};
+                U128 ii{0};
                 // std::cout << "Sieve: \n";
                 for (unsigned int i = 0; i < sieve.size(); ++i)
                 {
@@ -499,19 +505,21 @@ namespace u128
                 //     std::cout << "Matrix: rows: " << M.size() << ", cols: " << M.at(0).size() << std::endl;
                 // else
                 //     std::cout << "Empty matrix." << std::endl;
-                // std::cout << "Try to solve..." << std::endl;
+                // std::cout << "Try to solve..." << std::flush << std::endl;
                 const std::vector<std::set<int>> &solved_indices = solver::GaussJordan(M);
                 M.clear();
-                for (const auto &indices : solved_indices)
+                for (int i = 0; const auto &indices : solved_indices)
                 {
-                    // std::cout << "Solved indices: {";
+                    i++;
+                    if (i > not_more_solves) break;
+                    // std::cout << "Solved indices: " << solved_indices.size() << std::endl;
                     // for (const auto& idx : indices) {
-                    // std::cout << idx << ", ";
+                        // std::cout << idx << ", ";
                     // }
                     // std::cout << "}." << std::endl;
                     // TODO: expand A, B, C, GCD(.) to U256 or U512 etc. to reduce memory consumption.
-                    U512 A{1};
-                    std::map<U512, int> B_factors;
+                    Uext A{1};
+                    std::map<Uext, int> B_factors;
                     for (auto it = indices.begin(); it != indices.end(); it++)
                     {
                         const auto index = indices_where_unit_sieve.at(*it);
@@ -522,23 +530,19 @@ namespace u128
                             for (const auto &modulo : base)
                             {
                                 auto rem = (val / modulo).second;
-                                // std::cout << "modulo: " << modulo.value() << ", rem: " << rem.value() << std::endl;
-                                if (rem.is_zero())
-                                {
-                                    sieve_factors[modulo]++;
-                                }
+                                sieve_factors[modulo] += rem.is_zero() ? 1 : 0;
                             }
                         }
-                        // std::cout << "A: " << A.value() << std::endl;
-                        A = A * (x_sqrt_ext + U512{index});
+                        // std::cout << "A: " << std::flush << A.value() << std::endl;
+                        A = A * (x_sqrt_ext + Uext{index});
                         for (const auto &[prime, power] : sieve_factors)
                         {
                             // std::cout << "prime: " << prime.value() << ", power: " << power << std::endl;
-                            B_factors[convert_u128_to_u512(prime)] += power;
+                            B_factors[convert_u128_to_ext(prime)] += power;
                         }
                         if (A.is_singular())
                         {
-                            // std::cout << "Singularity was detected!\n";
+                            std::cout << "Singularity was detected!\n";
                             continue;
                         }
                     }
@@ -546,26 +550,27 @@ namespace u128
                     {
                         element.second /= 2;
                     }
-                    U512 B{1};
+                    Uext B{1};
                     for (const auto &[prime, power] : B_factors)
                     {
-                        U512 tmp{1};
+                        Uext tmp{1};
                         for (int i = 0; i < power; ++i)
                             tmp = tmp * prime;
                         B = B * tmp;
                     }
                     // std::cout << "B: " << B.value() << std::endl;
-                    const U512& x_ext = convert_u128_to_u512(x);
-                    const U512 &C = A - B;
+                    const auto& x_ext = convert_u128_to_ext(x);
+                    // std::cout << "x_ext: " << x_ext.value() << std::endl; 
+                    const auto &C = A - B;
                     // std::cout << "ABC: " << A.value() << ", " << B.value() << ", " << C.value() << std::endl;
-                    const U512 &GCD = gcd(C, x_ext);
+                    const auto &GCD = gcd(C, x_ext);
                     // std::cout << "GCD: " << GCD.value() << std::endl;
-                    if (GCD < x_ext && GCD > U512{1})
+                    if (GCD < x_ext && GCD > Uext{1})
                     {
                         // std::cout << "Fixed" << std::endl;
-                        return convert_u512_to_u128(GCD);
+                        return convert_ext_to_u128(GCD);
                     }
-                }
+                } // loop by solves.
                 return x;
             }; // find_a_divisor()
             U128 y{1};

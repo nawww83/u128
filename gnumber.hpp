@@ -3,6 +3,10 @@
 #include "singular.hpp"
 #include "sign.hpp"
 #include "gutils.hpp"
+#include <cstdint> // uint64_t
+#include <cassert>
+#include <tuple>
+#include "u128.hpp"
 
 /**
  * Число разрядности 4*mHalfWitdh, где mHalfWidth = 64, 128, 256, ...
@@ -149,12 +153,16 @@ struct GNumber
     /**
      * @brief Оператор сдвига влево.
      * @details Сохраняет знак. Поведение аналогично поведению
-     * такого же оператора для встроенных в язык С++ беззнаковых чисел.
+     * такого же оператора для встроенных в язык С++ беззнаковых чисел. Для заведомо больших сдвигов дает переполнение.
      */
     GNumber operator<<(uint32_t shift) const
     {
         GNumber result = *this;
-        int ishift = shift % (mHalfWidth * 4);
+        if (shift >= (mHalfWidth*4u)) {
+            result.set_overflow();
+            return result;
+        }
+        int ishift = shift;
         if (ishift < (mHalfWidth * 2))
         {
             const ULOW L = result.mLow >> ((mHalfWidth * 2) - ishift);
@@ -184,12 +192,15 @@ struct GNumber
     /**
      * @brief Оператор сдвига вправо.
      * @details Сохраняет знак. Поведение аналогично поведению
-     * такого же оператора для встроенных в язык С++ беззнаковых чисел.
+     * такого же оператора для встроенных в язык С++ беззнаковых чисел. Для заведомо больших сдвигов дает ноль.
      */
     GNumber operator>>(uint32_t shift) const
     {
+        if (shift >= (mHalfWidth * 4u)) {
+            return GNumber{0};
+        }
         GNumber result = *this;
-        int ishift = shift % (mHalfWidth * 4u);
+        int ishift = shift;
         if (ishift < (mHalfWidth * 2))
         {
             ULOW mask = ~ULOW{0};
@@ -523,17 +534,15 @@ struct GNumber
             result.mSingular = rhs.mSingular;
             return result;
         }
+        if (this->is_zero())
+            return GNumber{0};
         if (rhs.is_zero())
             return GNumber{0};
         GNumber result = mult_ext(mLow, rhs);
         GNumber tmp = mult_ext(mHigh, rhs);
-        const bool is_overflow = !tmp.mHigh.is_zero();
-        tmp.mHigh = tmp.mLow;
-        tmp.mLow = ULOW{0};
+        tmp = shl_half_width(tmp);
         result += tmp;
         result.mSign = !result.is_zero() ? this->mSign() : false;
-        if (is_overflow)
-            result.set_overflow();
         return result;
     }
 
@@ -552,6 +561,8 @@ struct GNumber
             result.set_nan();
             return result;
         }
+        if (X.is_zero())
+            return GNumber{0};
         if (rhs.is_zero())
             return GNumber{0};
         GNumber result = X * rhs.mLow;
@@ -571,11 +582,18 @@ struct GNumber
         GNumber X = *this;
         if (X.is_singular())
             return X;
+        if (X.is_zero()) {
+            return GNumber{0};
+        }
         const bool sign = X.mSign();
         X.mSign = false;
         ULOW Q {X.mHigh.div10()};
         ULOW R {static_cast<unsigned int>(X.mHigh.mod10())};
-        ULOW N { R * mMaxULOW.div10() + X.mLow.div10() };
+        ULOW big_division{0};
+        if (!R.is_zero()) {
+            big_division = mMaxULOW.div10();
+        }
+        ULOW N { R.is_zero() ? X.mLow.div10() : R * big_division + X.mLow.div10() };
         static constexpr ULOW TEN = ULOW{10};
         GNumber result{N, Q};
         GNumber E { X - (result * TEN) };
@@ -583,7 +601,7 @@ struct GNumber
         {
             Q = ULOW{E.mHigh.div10()};
             R = ULOW{static_cast<unsigned int>(E.mHigh.mod10())};
-            N = R * mMaxULOW.div10() + E.mLow.div10();
+            N = R.is_zero() ? E.mLow.div10() : R * big_division + E.mLow.div10();
             const GNumber tmp{N, Q};
             result += tmp;
             E -= tmp * TEN;
@@ -600,6 +618,8 @@ struct GNumber
     {
         if (this->is_singular())
             return -1;
+        if (this->is_zero())
+            return 0;
         const int multiplier_mod10 = mMaxULOW.mod10() + 1;
         return (mLow.mod10() + multiplier_mod10 * mHigh.mod10()) % 10;
     }
@@ -626,13 +646,17 @@ struct GNumber
             return std::make_pair(GNumber{ULOW{1}, ULOW{0}, sign}, GNumber{0});
         }
         auto [Q, R] = X.mHigh / y;
-        ULOW N { R * (mMaxULOW / y).first + (X.mLow / y).first };
+        ULOW big_division{0};
+        if (!R.is_zero()) {
+            big_division = (mMaxULOW / y).first;
+        }
+        ULOW N { R.is_zero() ? (X.mLow / y).first : R * big_division + (X.mLow / y).first };
         GNumber result{N, Q, X.mSign};
         GNumber E { X - result * y }; // Остаток от деления.
         for (;;)
         {
             std::tie(Q, R) = E.mHigh / y;
-            N = R * (mMaxULOW / y).first + (E.mLow / y).first;
+            N = R.is_zero() ? (E.mLow / y).first : R * big_division + (E.mLow / y).first;
             GNumber tmp{N, Q, E.mSign};
             if (tmp.is_zero())
                 break;
